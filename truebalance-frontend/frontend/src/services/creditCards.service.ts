@@ -4,6 +4,10 @@ import type {
   CreditCardResponseDTO,
   AvailableLimitResponseDTO,
 } from '@/types/dtos/creditCard.dto'
+import type {
+  CreditCardBulkImportRequestDTO,
+  CreditCardImportResultDTO,
+} from '@/types/dtos/import.dto'
 
 const CREDIT_CARDS_ENDPOINT = '/credit-cards'
 
@@ -66,5 +70,18 @@ export const creditCardsService = {
    */
   async delete(id: number): Promise<void> {
     await apiClient.delete(`${CREDIT_CARDS_ENDPOINT}/${id}`)
+  },
+
+  /**
+   * Bulk import credit cards from CSV/XLS
+   */
+  async bulkImport(
+    request: CreditCardBulkImportRequestDTO
+  ): Promise<CreditCardImportResultDTO> {
+    const response = await apiClient.post<CreditCardImportResultDTO>(
+      `${CREDIT_CARDS_ENDPOINT}/bulk-import`,
+      request
+    )
+    return response.data
   },
 }

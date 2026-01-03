@@ -7,6 +7,9 @@ import com.truebalance.truebalance.domain.port.InvoiceRepositoryPort;
 import com.truebalance.truebalance.domain.port.PartialPaymentRepositoryPort;
 import com.truebalance.truebalance.domain.service.InstallmentDateCalculator;
 import com.truebalance.truebalance.domain.usecase.*;
+import com.truebalance.truebalance.infra.db.repository.BillRepository;
+import com.truebalance.truebalance.infra.db.repository.CreditCardRepository;
+import com.truebalance.truebalance.infra.db.repository.InvoiceRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -190,5 +193,27 @@ public class UseCaseConfig {
     @Bean
     public MarkInvoiceAsUnpaid markInvoiceAsUnpaid(InvoiceRepositoryPort invoiceRepositoryPort) {
         return new MarkInvoiceAsUnpaid(invoiceRepositoryPort);
+    }
+
+    @Bean
+    public ImportBillsInBulk importBillsInBulk(
+            CreateBill createBill,
+            CreateBillWithCreditCard createBillWithCreditCard,
+            BillRepository billRepository) {
+        return new ImportBillsInBulk(createBill, createBillWithCreditCard, billRepository);
+    }
+
+    @Bean
+    public ImportInvoicesInBulk importInvoicesInBulk(
+            InvoiceRepositoryPort invoiceRepositoryPort,
+            InvoiceRepository invoiceRepository) {
+        return new ImportInvoicesInBulk(invoiceRepositoryPort, invoiceRepository);
+    }
+
+    @Bean
+    public ImportCreditCardsInBulk importCreditCardsInBulk(
+            CreateCreditCard createCreditCard,
+            CreditCardRepository creditCardRepository) {
+        return new ImportCreditCardsInBulk(createCreditCard, creditCardRepository);
     }
 }

@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Select } from '@/components/ui/Select'
+import { UnifiedImportExport } from '@/components/ui/UnifiedImportExport'
 import { formatCurrency } from '@/utils/currency'
 import { reportsService } from '@/services/reports.service'
 
@@ -128,7 +129,7 @@ export function Dashboard() {
               Visão geral das suas finanças
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="w-48">
               <Select
                 value={periodFilter}
@@ -139,6 +140,7 @@ export function Dashboard() {
                 options={periodOptions}
               />
             </div>
+            <UnifiedImportExport />
             <Button onClick={handleNewBill}>
               <Plus className="w-4 h-4" />
               Nova Conta

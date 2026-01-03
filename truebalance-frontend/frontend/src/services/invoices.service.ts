@@ -2,6 +2,7 @@ import apiClient from '@/lib/axios'
 import type { InvoiceResponseDTO } from '@/types/dtos/invoice.dto'
 import type { InstallmentResponseDTO } from '@/types/dtos/installment.dto'
 import type { PartialPaymentRequestDTO, PartialPaymentResponseDTO } from '@/types/dtos/partialPayment.dto'
+import type { InvoiceBulkImportRequestDTO, InvoiceImportResultDTO } from '@/types/dtos/import.dto'
 
 const INVOICES_ENDPOINT = '/invoices'
 
@@ -74,6 +75,17 @@ export const invoicesService = {
     const response = await apiClient.post<PartialPaymentResponseDTO>(
       `${INVOICES_ENDPOINT}/${invoiceId}/partial-payments`,
       payment
+    )
+    return response.data
+  },
+
+  /**
+   * Bulk import invoices from CSV/XLS
+   */
+  async bulkImport(request: InvoiceBulkImportRequestDTO): Promise<InvoiceImportResultDTO> {
+    const response = await apiClient.post<InvoiceImportResultDTO>(
+      `${INVOICES_ENDPOINT}/bulk-import`,
+      request
     )
     return response.data
   },

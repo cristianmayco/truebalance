@@ -1,15 +1,18 @@
 import { useNavigate } from 'react-router-dom'
 import { Plus, CreditCard } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { AppShell } from '@/components/layout/AppShell'
 import { useCreditCards } from '@/hooks/useCreditCards'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { CreditCardCard } from '@/components/creditCards/CreditCardCard'
+import { ImportButton } from '@/components/ui/ImportButton'
 import type { CreditCardResponseDTO } from '@/types/dtos/creditCard.dto'
 
 export function CreditCardsList() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: creditCards, isLoading, error } = useCreditCards()
 
   const handleEdit = (creditCard: CreditCardResponseDTO) => {
@@ -58,10 +61,20 @@ export function CreditCardsList() {
               Gerencie seus cartões e acompanhe os limites
             </p>
           </div>
-          <Button onClick={handleNew}>
-            <Plus className="w-4 h-4" />
-            Novo Cartão
-          </Button>
+          <div className="flex items-center gap-3">
+            {!isEmpty && (
+              <ImportButton
+                entityType="creditCards"
+                onImportComplete={() => {
+                  queryClient.invalidateQueries({ queryKey: ['creditCards'] })
+                }}
+              />
+            )}
+            <Button onClick={handleNew}>
+              <Plus className="w-4 h-4" />
+              Novo Cartão
+            </Button>
+          </div>
         </div>
 
         {/* Content */}

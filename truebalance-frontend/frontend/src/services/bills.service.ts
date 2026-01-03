@@ -1,6 +1,7 @@
 import apiClient from '@/lib/axios'
 import type { BillRequestDTO, BillResponseDTO, BillFiltersDTO } from '@/types/dtos/bill.dto'
 import type { PaginatedResponse } from '@/types/dtos/common.dto'
+import type { BillBulkImportRequestDTO, BillImportResultDTO } from '@/types/dtos/import.dto'
 
 const BILLS_ENDPOINT = '/bills'
 
@@ -51,5 +52,16 @@ export const billsService = {
    */
   async delete(id: number): Promise<void> {
     await apiClient.delete(`${BILLS_ENDPOINT}/${id}`)
+  },
+
+  /**
+   * Bulk import bills from CSV/XLS
+   */
+  async bulkImport(request: BillBulkImportRequestDTO): Promise<BillImportResultDTO> {
+    const response = await apiClient.post<BillImportResultDTO>(
+      `${BILLS_ENDPOINT}/bulk-import`,
+      request
+    )
+    return response.data
   },
 }

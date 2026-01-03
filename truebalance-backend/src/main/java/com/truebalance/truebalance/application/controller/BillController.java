@@ -1,6 +1,8 @@
 package com.truebalance.truebalance.application.controller;
 
+import com.truebalance.truebalance.application.dto.input.BillBulkImportRequestDTO;
 import com.truebalance.truebalance.application.dto.input.BillRequestDTO;
+import com.truebalance.truebalance.application.dto.output.BillImportResultDTO;
 import com.truebalance.truebalance.application.dto.output.BillResponseDTO;
 import com.truebalance.truebalance.application.dto.output.InstallmentResponseDTO;
 import com.truebalance.truebalance.application.dto.output.PaginatedResponse;
@@ -12,6 +14,8 @@ import com.truebalance.truebalance.domain.usecase.DeleteBill;
 import com.truebalance.truebalance.domain.usecase.GetAllBills;
 import com.truebalance.truebalance.domain.usecase.GetBillById;
 import com.truebalance.truebalance.domain.usecase.GetBillInstallments;
+import com.truebalance.truebalance.domain.service.FileImportService;
+import com.truebalance.truebalance.domain.usecase.ImportBillsInBulk;
 import com.truebalance.truebalance.domain.usecase.UpdateBill;
 import com.truebalance.truebalance.domain.usecase.UpdateBillWithCreditCard;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +35,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -52,11 +57,14 @@ public class BillController {
     private final GetBillById getBillById;
     private final DeleteBill deleteBill;
     private final GetBillInstallments getBillInstallments;
+    private final ImportBillsInBulk importBillsInBulk;
+    private final FileImportService fileImportService;
 
     public BillController(CreateBill createBill, CreateBillWithCreditCard createBillWithCreditCard,
                           UpdateBill updateBill, UpdateBillWithCreditCard updateBillWithCreditCard,
                           GetAllBills getAllBills, GetBillById getBillById, DeleteBill deleteBill,
-                          GetBillInstallments getBillInstallments) {
+                          GetBillInstallments getBillInstallments, ImportBillsInBulk importBillsInBulk,
+                          FileImportService fileImportService) {
         this.createBill = createBill;
         this.createBillWithCreditCard = createBillWithCreditCard;
         this.updateBill = updateBill;
@@ -65,6 +73,8 @@ public class BillController {
         this.getBillById = getBillById;
         this.deleteBill = deleteBill;
         this.getBillInstallments = getBillInstallments;
+        this.importBillsInBulk = importBillsInBulk;
+        this.fileImportService = fileImportService;
     }
 
     @Operation(summary = "Listar todas as contas", description = "Retorna uma lista paginada com todas as contas/despesas cadastradas no sistema.")
@@ -325,6 +335,73 @@ public class BillController {
                 .map(InstallmentResponseDTO::fromInstallment)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Importar contas em massa",
+               description = "Importa múltiplas contas a partir de arquivo CSV/XLS. " +
+                             "Permite escolher estratégia para duplicatas: ignorar (SKIP) ou criar duplicadas (CREATE_DUPLICATE).")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Importação processada com sucesso",
+                    content = @Content(mediaType = "application/json",
+                                      schema = @Schema(implementation = BillImportResultDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content)
+    })
+    @PostMapping("/bulk-import")
+    public ResponseEntity<BillImportResultDTO> bulkImport(
+            @Valid @RequestBody BillBulkImportRequestDTO request) {
+
+        logger.info("POST /bills/bulk-import - Importando {} itens com estratégia {}",
+                request.getItems().size(), request.getDuplicateStrategy());
+
+        BillImportResultDTO result = importBillsInBulk.execute(request);
+
+        logger.info("Importação concluída: {} criadas, {} ignoradas, {} erros",
+                result.getTotalCreated(), result.getTotalSkipped(), result.getTotalErrors());
+
+        return ResponseEntity.ok(result);
+    }
+
+    @Operation(summary = "Importar contas de arquivo CSV/XLS",
+               description = "Importa contas em massa a partir de um arquivo CSV ou XLS/XLSX. " +
+                             "O arquivo deve conter cabeçalhos: Nome, Data, Valor Total, Número de Parcelas. " +
+                             "Opcionalmente: Descrição, ID Cartão.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Importação concluída com sucesso",
+                    content = @Content(mediaType = "application/json",
+                                      schema = @Schema(implementation = BillImportResultDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Arquivo inválido ou erro no processamento", content = @Content)
+    })
+    @PostMapping(value = "/bulk-import-file", consumes = "multipart/form-data")
+    public ResponseEntity<BillImportResultDTO> bulkImportFromFile(
+            @Parameter(description = "Arquivo CSV ou XLS/XLSX para importação", required = true)
+            @RequestParam("file") MultipartFile file,
+            @Parameter(description = "Estratégia para duplicatas: SKIP ou CREATE_DUPLICATE", required = true)
+            @RequestParam("duplicateStrategy") BillBulkImportRequestDTO.DuplicateStrategy duplicateStrategy) {
+
+        logger.info("POST /bills/bulk-import-file - Importando arquivo: {} com estratégia {}",
+                file.getOriginalFilename(), duplicateStrategy);
+
+        try {
+            // Parse file
+            List<com.truebalance.truebalance.application.dto.input.BillImportItemDTO> items =
+                    fileImportService.parseBillsFromFile(file);
+
+            // Create request
+            BillBulkImportRequestDTO request = new BillBulkImportRequestDTO();
+            request.setItems(items);
+            request.setDuplicateStrategy(duplicateStrategy);
+
+            // Execute import
+            BillImportResultDTO result = importBillsInBulk.execute(request);
+
+            logger.info("Importação de arquivo concluída: {} criadas, {} ignoradas, {} erros",
+                    result.getTotalCreated(), result.getTotalSkipped(), result.getTotalErrors());
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Erro ao importar arquivo: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 
 }

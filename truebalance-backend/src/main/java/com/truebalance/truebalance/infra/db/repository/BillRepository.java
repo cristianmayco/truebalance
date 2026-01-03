@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Repository
 public interface BillRepository extends JpaRepository<BillEntity, Long> {
@@ -19,4 +21,16 @@ public interface BillRepository extends JpaRepository<BillEntity, Long> {
                              @Param("name") String name,
                              @Param("startDate") LocalDateTime startDate,
                              @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT b FROM BillEntity b WHERE " +
+           "LOWER(b.name) = LOWER(:name) AND " +
+           "b.totalAmount = :totalAmount AND " +
+           "b.executionDate = :executionDate AND " +
+           "b.numberOfInstallments = :numberOfInstallments")
+    Optional<BillEntity> findDuplicate(
+            @Param("name") String name,
+            @Param("totalAmount") BigDecimal totalAmount,
+            @Param("executionDate") LocalDateTime executionDate,
+            @Param("numberOfInstallments") int numberOfInstallments
+    );
 }

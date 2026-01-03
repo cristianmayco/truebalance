@@ -1,8 +1,10 @@
 package com.truebalance.truebalance.application.controller;
 
+import com.truebalance.truebalance.application.dto.input.InvoiceBulkImportRequestDTO;
 import com.truebalance.truebalance.application.dto.input.PartialPaymentRequestDTO;
 import com.truebalance.truebalance.application.dto.output.InstallmentResponseDTO;
 import com.truebalance.truebalance.application.dto.output.InvoiceBalanceDTO;
+import com.truebalance.truebalance.application.dto.output.InvoiceImportResultDTO;
 import com.truebalance.truebalance.application.dto.output.InvoiceResponseDTO;
 import com.truebalance.truebalance.application.dto.output.PartialPaymentResponseDTO;
 import com.truebalance.truebalance.domain.entity.Installment;
@@ -15,6 +17,8 @@ import com.truebalance.truebalance.domain.usecase.GetInvoiceById;
 import com.truebalance.truebalance.domain.usecase.GetInvoiceInstallments;
 import com.truebalance.truebalance.domain.usecase.GetInvoicesByCreditCard;
 import com.truebalance.truebalance.domain.usecase.GetPartialPaymentsByInvoice;
+import com.truebalance.truebalance.domain.service.FileImportService;
+import com.truebalance.truebalance.domain.usecase.ImportInvoicesInBulk;
 import com.truebalance.truebalance.domain.usecase.MarkInvoiceAsPaid;
 import com.truebalance.truebalance.domain.usecase.MarkInvoiceAsUnpaid;
 import com.truebalance.truebalance.domain.usecase.RegisterPartialPayment;
@@ -31,6 +35,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -53,6 +58,8 @@ public class InvoiceController {
     private final DeletePartialPayment deletePartialPayment;
     private final MarkInvoiceAsPaid markInvoiceAsPaid;
     private final MarkInvoiceAsUnpaid markInvoiceAsUnpaid;
+    private final ImportInvoicesInBulk importInvoicesInBulk;
+    private final FileImportService fileImportService;
 
     public InvoiceController(GetInvoiceById getInvoiceById,
                              GetInvoicesByCreditCard getInvoicesByCreditCard,
@@ -63,7 +70,9 @@ public class InvoiceController {
                              RegisterPartialPayment registerPartialPayment,
                              DeletePartialPayment deletePartialPayment,
                              MarkInvoiceAsPaid markInvoiceAsPaid,
-                             MarkInvoiceAsUnpaid markInvoiceAsUnpaid) {
+                             MarkInvoiceAsUnpaid markInvoiceAsUnpaid,
+                             ImportInvoicesInBulk importInvoicesInBulk,
+                             FileImportService fileImportService) {
         this.getInvoiceById = getInvoiceById;
         this.getInvoicesByCreditCard = getInvoicesByCreditCard;
         this.closeInvoice = closeInvoice;
@@ -74,6 +83,8 @@ public class InvoiceController {
         this.deletePartialPayment = deletePartialPayment;
         this.markInvoiceAsPaid = markInvoiceAsPaid;
         this.markInvoiceAsUnpaid = markInvoiceAsUnpaid;
+        this.importInvoicesInBulk = importInvoicesInBulk;
+        this.fileImportService = fileImportService;
     }
 
     @Operation(summary = "Listar faturas por cartão de crédito",
@@ -312,6 +323,74 @@ public class InvoiceController {
                     return ResponseEntity.ok(InvoiceResponseDTO.fromInvoice(inv));
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Operation(summary = "Importar faturas em massa",
+               description = "Importa múltiplas faturas a partir de arquivo CSV/XLS. " +
+                             "Permite escolher estratégia para duplicatas: ignorar (SKIP) ou criar duplicadas (CREATE_DUPLICATE). " +
+                             "Critério de duplicata: mesmo cartão de crédito + mesmo mês de referência.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Importação processada com sucesso",
+                    content = @Content(mediaType = "application/json",
+                                      schema = @Schema(implementation = InvoiceImportResultDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content)
+    })
+    @PostMapping("/bulk-import")
+    public ResponseEntity<InvoiceImportResultDTO> bulkImport(
+            @Valid @RequestBody InvoiceBulkImportRequestDTO request) {
+
+        logger.info("POST /invoices/bulk-import - Importando {} itens com estratégia {}",
+                request.getItems().size(), request.getDuplicateStrategy());
+
+        InvoiceImportResultDTO result = importInvoicesInBulk.execute(request);
+
+        logger.info("Importação concluída: {} criadas, {} ignoradas, {} erros",
+                result.getTotalCreated(), result.getTotalSkipped(), result.getTotalErrors());
+
+        return ResponseEntity.ok(result);
+    }
+
+    @Operation(summary = "Importar faturas de arquivo CSV/XLS",
+               description = "Importa faturas em massa a partir de um arquivo CSV ou XLS/XLSX. " +
+                             "O arquivo deve conter cabeçalhos: ID Cartão, Mês de Referência, Valor Total. " +
+                             "Opcionalmente: Saldo Anterior, Fechada, Paga.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Importação concluída com sucesso",
+                    content = @Content(mediaType = "application/json",
+                                      schema = @Schema(implementation = InvoiceImportResultDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Arquivo inválido ou erro no processamento", content = @Content)
+    })
+    @PostMapping(value = "/bulk-import-file", consumes = "multipart/form-data")
+    public ResponseEntity<InvoiceImportResultDTO> bulkImportFromFile(
+            @Parameter(description = "Arquivo CSV ou XLS/XLSX para importação", required = true)
+            @RequestParam("file") MultipartFile file,
+            @Parameter(description = "Estratégia para duplicatas: SKIP ou CREATE_DUPLICATE", required = true)
+            @RequestParam("duplicateStrategy") InvoiceBulkImportRequestDTO.DuplicateStrategy duplicateStrategy) {
+
+        logger.info("POST /invoices/bulk-import-file - Importando arquivo: {} com estratégia {}",
+                file.getOriginalFilename(), duplicateStrategy);
+
+        try {
+            // Parse file
+            List<com.truebalance.truebalance.application.dto.input.InvoiceImportItemDTO> items =
+                    fileImportService.parseInvoicesFromFile(file);
+
+            // Create request
+            InvoiceBulkImportRequestDTO request = new InvoiceBulkImportRequestDTO();
+            request.setItems(items);
+            request.setDuplicateStrategy(duplicateStrategy);
+
+            // Execute import
+            InvoiceImportResultDTO result = importInvoicesInBulk.execute(request);
+
+            logger.info("Importação de arquivo concluída: {} criadas, {} ignoradas, {} erros",
+                    result.getTotalCreated(), result.getTotalSkipped(), result.getTotalErrors());
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Erro ao importar arquivo: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 
 }
