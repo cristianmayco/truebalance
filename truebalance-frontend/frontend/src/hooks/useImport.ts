@@ -22,7 +22,8 @@ import type {
   CreditCardImportResultDTO,
   DuplicateStrategy,
 } from '@/types/dtos/import.dto'
-import type { EntityType } from '@/components/ui/ImportButton'
+// EntityType não é mais necessário com o novo componente ImportExport
+type EntityType = 'bills' | 'invoices' | 'creditCards'
 
 type ImportItemDTO = BillImportItemDTO | InvoiceImportItemDTO | CreditCardImportItemDTO
 type ImportResultDTO = BillImportResultDTO | InvoiceImportResultDTO | CreditCardImportResultDTO

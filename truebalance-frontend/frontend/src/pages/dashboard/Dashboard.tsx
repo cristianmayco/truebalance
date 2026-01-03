@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Select } from '@/components/ui/Select'
-import { UnifiedImportExport } from '@/components/ui/UnifiedImportExport'
+import { ImportExport } from '@/components/ui/ImportExport'
 import { formatCurrency } from '@/utils/currency'
 import { reportsService } from '@/services/reports.service'
 
@@ -140,7 +140,7 @@ export function Dashboard() {
                 options={periodOptions}
               />
             </div>
-            <UnifiedImportExport />
+            <ImportExport />
             <Button onClick={handleNewBill}>
               <Plus className="w-4 h-4" />
               Nova Conta

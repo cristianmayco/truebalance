@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { useBills } from '@/hooks/useBills'
@@ -11,14 +10,11 @@ import { Pagination } from '@/components/ui/Pagination'
 import { BillsTable } from '@/components/bills/BillsTable'
 import { BillCard } from '@/components/bills/BillCard'
 import { BillFilters } from '@/components/bills/BillFilters'
-import { ExportButton } from '@/components/ui/ExportButton'
-import { ImportButton } from '@/components/ui/ImportButton'
-import { formatBillsForExport } from '@/utils/exportFormatters'
+import { ImportExport } from '@/components/ui/ImportExport'
 import type { BillFiltersDTO, BillResponseDTO } from '@/types/dtos/bill.dto'
 
 export function BillsList() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [filters, setFilters] = useState<BillFiltersDTO>({ page: 0, size: 10 })
 
   const { data, isLoading, error } = useBills(filters)
@@ -77,21 +73,7 @@ export function BillsList() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {!isEmpty && (
-            <>
-              <ImportButton
-                entityType="bills"
-                onImportComplete={() => {
-                  queryClient.invalidateQueries({ queryKey: ['bills'] })
-                }}
-              />
-              <ExportButton
-                data={bills}
-                filename="contas"
-                formatData={formatBillsForExport}
-              />
-            </>
-          )}
+          <ImportExport />
           <Button onClick={handleNew}>
             <Plus className="w-4 h-4" />
             Nova Conta

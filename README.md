@@ -90,6 +90,7 @@ truebalance/
 - Port: 8080
 - Health: Waits for postgres to be healthy
 - Auto-restart enabled
+- Dependencies: Apache POI (Excel), Apache Commons CSV
 
 ### Frontend
 - Container: `truebalance-frontend`
@@ -97,6 +98,57 @@ truebalance/
 - Nginx serves optimized production build
 - API requests proxied to backend
 - Auto-restart enabled
+
+## Features
+
+### Importação e Exportação
+
+O sistema suporta importação e exportação de dados em formato Excel (XLS/XLSX) e CSV:
+
+#### Exportação Unificada
+- **Endpoint**: `GET /unified/export`
+- Exporta todas as entidades (contas, cartões, faturas) em um único arquivo Excel
+- Arquivo contém múltiplas abas, uma para cada tipo de entidade
+- Formato: XLSX
+
+#### Importação Unificada
+- **Endpoint**: `POST /unified/import`
+- Importa todas as entidades de um único arquivo Excel
+- Suporta arquivos com múltiplas abas
+- Validação automática de dados
+- Estratégias de tratamento de duplicatas:
+  - `SKIP`: Ignora registros duplicados
+  - `CREATE_DUPLICATE`: Cria todos os registros, mesmo duplicados
+
+#### Importação Individual
+- **Contas**: `POST /bills/bulk-import-file`
+- **Faturas**: `POST /invoices/bulk-import-file`
+- **Cartões**: `POST /credit-cards/bulk-import-file`
+
+#### Formatos Suportados
+- CSV (UTF-8)
+- XLS (Excel 97-2003)
+- XLSX (Excel 2007+)
+
+#### Estrutura dos Arquivos
+
+**Contas (Bills):**
+- Cabeçalhos obrigatórios: `Nome`, `Data`, `Valor Total`, `Número de Parcelas`
+- Opcional: `Descrição`, `ID Cartão`
+
+**Cartões de Crédito:**
+- Cabeçalhos obrigatórios: `Nome`, `Limite de Crédito`, `Dia de Fechamento`, `Dia de Vencimento`
+- Opcional: `Permite Pagamento Parcial`
+
+**Faturas (Invoices):**
+- Cabeçalhos obrigatórios: `ID Cartão`, `Mês de Referência`, `Valor Total`
+- Opcional: `Saldo Anterior`, `Fechada`, `Paga`
+
+## Documentação
+
+- **API Documentation**: `truebalance-backend/docs/api-doc.md`
+- **Import/Export Guide**: `truebalance-backend/docs/import-export-guide.md`
+- **Swagger UI**: http://localhost:8080/swagger-ui.html (quando o backend estiver rodando)
 
 ## Development
 For local development without Docker, see individual README files:

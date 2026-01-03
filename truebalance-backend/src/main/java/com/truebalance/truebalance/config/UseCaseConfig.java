@@ -196,24 +196,20 @@ public class UseCaseConfig {
     }
 
     @Bean
-    public ImportBillsInBulk importBillsInBulk(
-            CreateBill createBill,
-            CreateBillWithCreditCard createBillWithCreditCard,
-            BillRepository billRepository) {
-        return new ImportBillsInBulk(createBill, createBillWithCreditCard, billRepository);
+    public ExportData exportData(BillRepositoryPort billRepositoryPort,
+                                 CreditCardRepositoryPort creditCardRepositoryPort,
+                                 InvoiceRepositoryPort invoiceRepositoryPort,
+                                 InstallmentRepositoryPort installmentRepositoryPort) {
+        return new ExportData(billRepositoryPort, creditCardRepositoryPort, invoiceRepositoryPort, installmentRepositoryPort);
     }
 
     @Bean
-    public ImportInvoicesInBulk importInvoicesInBulk(
-            InvoiceRepositoryPort invoiceRepositoryPort,
-            InvoiceRepository invoiceRepository) {
-        return new ImportInvoicesInBulk(invoiceRepositoryPort, invoiceRepository);
-    }
-
-    @Bean
-    public ImportCreditCardsInBulk importCreditCardsInBulk(
-            CreateCreditCard createCreditCard,
-            CreditCardRepository creditCardRepository) {
-        return new ImportCreditCardsInBulk(createCreditCard, creditCardRepository);
+    public ImportData importData(BillRepositoryPort billRepositoryPort,
+                                 CreditCardRepositoryPort creditCardRepositoryPort,
+                                 InvoiceRepositoryPort invoiceRepositoryPort,
+                                 CreateBill createBill,
+                                 CreateCreditCard createCreditCard) {
+        return new ImportData(billRepositoryPort, creditCardRepositoryPort, invoiceRepositoryPort,
+                createBill, createCreditCard);
     }
 }

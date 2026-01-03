@@ -150,6 +150,168 @@ Resultado:
 
 ## Endpoints da API
 
+### Importação e Exportação Unificada
+
+#### Exportar Todas as Entidades
+
+`GET /unified/export`
+
+Exporta todas as contas, cartões de crédito e faturas para um único arquivo Excel com múltiplas abas.
+
+**Resposta:**
+- Content-Type: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+- Arquivo Excel com três abas:
+  - **Contas**: Todas as contas cadastradas
+  - **Cartões de Crédito**: Todos os cartões cadastrados
+  - **Faturas**: Todas as faturas cadastradas
+
+**Exemplo:**
+```bash
+curl -X GET http://localhost:8080/unified/export -o truebalance_export.xlsx
+```
+
+---
+
+#### Importar Todas as Entidades
+
+`POST /unified/import`
+
+Importa contas, cartões de crédito e faturas de um único arquivo Excel com múltiplas abas.
+
+**Parâmetros:**
+- `file` (MultipartFile): Arquivo Excel (XLS ou XLSX) contendo as abas:
+  - **Contas**: Aba com nome "Contas"
+  - **Cartões de Crédito**: Aba com nome "Cartões de Crédito"
+  - **Faturas**: Aba com nome "Faturas"
+- `duplicateStrategy` (String): Estratégia para duplicatas
+  - `SKIP`: Ignora registros duplicados
+  - `CREATE_DUPLICATE`: Cria registros mesmo se duplicados
+
+**Formato do Arquivo:**
+
+**Aba "Contas":**
+| ID | Nome | Descrição | Data | Valor Total | Número de Parcelas | Valor da Parcela | ID Cartão | Criado em | Atualizado em |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | Compra Mercado | ... | 10/01/2025 | R$ 400,00 | 4 | R$ 100,00 | 1 | ... | ... |
+
+**Aba "Cartões de Crédito":**
+| ID | Nome | Limite de Crédito | Limite Disponível | Dia de Fechamento | Dia de Vencimento | Permite Pagamento Parcial | Criado em | Atualizado em |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Nubank | R$ 5.000,00 | R$ 4.500,00 | 10 | 17 | Sim | ... | ... |
+
+**Aba "Faturas":**
+| ID | ID Cartão | Mês de Referência | Valor Total | Saldo Anterior | Fechada | Paga | Criado em | Atualizado em |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 1 | 01/2025 | R$ 1.200,00 | R$ 0,00 | Não | Não | ... | ... |
+
+**Resposta:**
+```json
+{
+  "bills": {
+    "totalProcessed": 10,
+    "totalCreated": 8,
+    "totalSkipped": 2,
+    "totalErrors": 0,
+    "duplicatesFound": [...],
+    "errors": [],
+    "createdBills": [...]
+  },
+  "creditCards": {
+    "totalProcessed": 5,
+    "totalCreated": 4,
+    "totalSkipped": 1,
+    "totalErrors": 0,
+    "duplicatesFound": [...],
+    "errors": [],
+    "createdCreditCards": [...]
+  },
+  "invoices": {
+    "totalProcessed": 12,
+    "totalCreated": 10,
+    "totalSkipped": 2,
+    "totalErrors": 0,
+    "duplicatesFound": [...],
+    "errors": [],
+    "createdInvoices": [...]
+  },
+  "summary": {
+    "totalCreated": 22,
+    "totalSkipped": 5,
+    "totalErrors": 0
+  }
+}
+```
+
+**Exemplo:**
+```bash
+curl -X POST http://localhost:8080/unified/import \
+  -F "file=@dados.xlsx" \
+  -F "duplicateStrategy=SKIP"
+```
+
+---
+
+### Importação Individual por Tipo
+
+#### Importar Contas de Arquivo
+
+`POST /bills/bulk-import-file`
+
+Importa contas de um arquivo CSV ou XLS/XLSX.
+
+**Parâmetros:**
+- `file` (MultipartFile): Arquivo CSV ou XLS/XLSX
+- `duplicateStrategy` (String): SKIP ou CREATE_DUPLICATE
+
+**Cabeçalhos esperados (CSV/Excel):**
+- `Nome` (obrigatório)
+- `Data` (obrigatório) - formato: dd/MM/yyyy
+- `Valor Total` (obrigatório)
+- `Número de Parcelas` (obrigatório)
+- `Descrição` (opcional)
+- `ID Cartão` (opcional)
+
+---
+
+#### Importar Faturas de Arquivo
+
+`POST /invoices/bulk-import-file`
+
+Importa faturas de um arquivo CSV ou XLS/XLSX.
+
+**Parâmetros:**
+- `file` (MultipartFile): Arquivo CSV ou XLS/XLSX
+- `duplicateStrategy` (String): SKIP ou CREATE_DUPLICATE
+
+**Cabeçalhos esperados (CSV/Excel):**
+- `ID Cartão` (obrigatório)
+- `Mês de Referência` (obrigatório) - formato: MM/yyyy ou yyyy-MM
+- `Valor Total` (obrigatório)
+- `Saldo Anterior` (opcional)
+- `Fechada` (opcional) - true/false, sim/não
+- `Paga` (opcional) - true/false, sim/não
+
+---
+
+#### Importar Cartões de Crédito de Arquivo
+
+`POST /credit-cards/bulk-import-file`
+
+Importa cartões de crédito de um arquivo CSV ou XLS/XLSX.
+
+**Parâmetros:**
+- `file` (MultipartFile): Arquivo CSV ou XLS/XLSX
+- `duplicateStrategy` (String): SKIP ou CREATE_DUPLICATE
+
+**Cabeçalhos esperados (CSV/Excel):**
+- `Nome` (obrigatório)
+- `Limite de Crédito` (obrigatório)
+- `Dia de Fechamento` (obrigatório) - 1 a 31
+- `Dia de Vencimento` (obrigatório) - 1 a 31
+- `Permite Pagamento Parcial` (opcional) - true/false, sim/não
+
+---
+
 ### Contas
 
 #### Criar Conta
@@ -289,3 +451,11 @@ Ao excluir uma conta, todas as parcelas associadas devem ser removidas.
 ## Considerações Finais
 
 Esta API foi projetada para manter consistência financeira, rastreabilidade de parcelas e correto controle de faturas futuras, garantindo integridade dos dados e previsibilidade dos valores cobrados.
+
+---
+
+## Referências Adicionais
+
+Para informações detalhadas sobre importação e exportação, consulte:
+- **Guia Completo de Import/Export**: `import-export-guide.md`
+- **Swagger UI**: http://localhost:8080/swagger-ui.html

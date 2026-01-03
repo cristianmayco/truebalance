@@ -2,6 +2,7 @@ package com.truebalance.truebalance.domain.usecase;
 
 import com.truebalance.truebalance.domain.entity.CreditCard;
 import com.truebalance.truebalance.domain.port.CreditCardRepositoryPort;
+import com.truebalance.truebalance.domain.service.CreditCardNameNormalizer;
 
 public class CreateCreditCard {
 
@@ -12,6 +13,10 @@ public class CreateCreditCard {
     }
 
     public CreditCard execute(CreditCard creditCard) {
+        // Normalizar nome do cartão para garantir unicidade e consistência
+        String normalizedName = CreditCardNameNormalizer.normalize(creditCard.getName());
+        creditCard.setName(normalizedName);
+
         // BR-CC-002: Validate days are between 1-31
         validateDay(creditCard.getClosingDay(), "Closing day");
         validateDay(creditCard.getDueDay(), "Due day");

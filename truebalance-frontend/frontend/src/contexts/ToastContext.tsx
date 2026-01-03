@@ -37,13 +37,41 @@ export function ToastProvider({ children, maxToasts = 5 }: ToastProviderProps) {
 
   const showToast = useCallback(
     (type: ToastType, message: string, title?: string, duration: number = 5000) => {
+      // Garantir que message é sempre uma string válida
+      let safeMessage = '';
+      if (typeof message === 'string') {
+        safeMessage = message;
+      } else if (message != null) {
+        try {
+          safeMessage = String(message);
+        } catch (e) {
+          safeMessage = 'Erro ao exibir mensagem';
+        }
+      } else {
+        safeMessage = 'Mensagem não disponível';
+      }
+
+      // Garantir que title é sempre uma string válida ou undefined
+      let safeTitle: string | undefined = undefined;
+      if (title != null) {
+        if (typeof title === 'string') {
+          safeTitle = title;
+        } else {
+          try {
+            safeTitle = String(title);
+          } catch (e) {
+            // Ignorar título se não puder converter
+          }
+        }
+      }
+
       const id = `toast-${Date.now()}-${Math.random()}`;
 
       const newToast: ToastMessage = {
         id,
         type,
-        title,
-        message,
+        title: safeTitle,
+        message: safeMessage,
         duration,
       };
 

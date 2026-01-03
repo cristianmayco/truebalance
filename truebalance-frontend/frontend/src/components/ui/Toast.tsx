@@ -77,8 +77,8 @@ export function Toast({ type, title, message, onClose }: ToastProps) {
       <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${iconStyles[type]}`} aria-hidden="true" />
 
       <div className="flex-1 min-w-0">
-        {title && <p className="text-sm font-semibold mb-1">{title}</p>}
-        <p className="text-sm">{message}</p>
+        {title && typeof title === 'string' && <p className="text-sm font-semibold mb-1">{title}</p>}
+        <p className="text-sm">{typeof message === 'string' ? message : String(message || '')}</p>
       </div>
 
       <button

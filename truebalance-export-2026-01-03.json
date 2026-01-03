@@ -1,0 +1,42 @@
+{
+  "bills": [
+    {
+      "id": 7,
+      "name": "Starlink",
+      "executionDate": "2025-12-28T00:00:00",
+      "totalAmount": 235.52,
+      "numberOfInstallments": 1,
+      "installmentAmount": 235.52,
+      "description": null,
+      "isRecurring": true,
+      "creditCardId": null,
+      "createdAt": "2026-01-03T22:36:16.510763",
+      "updatedAt": "2026-01-03T22:36:36.628153"
+    }
+  ],
+  "creditCards": [
+    {
+      "id": 7,
+      "name": "starlink",
+      "creditLimit": 2800,
+      "closingDay": 21,
+      "dueDay": 28,
+      "allowsPartialPayment": true,
+      "createdAt": "2026-01-03T22:36:31.434855",
+      "updatedAt": "2026-01-03T22:36:31.434871"
+    }
+  ],
+  "invoices": [
+    {
+      "id": 19,
+      "creditCardId": 7,
+      "referenceMonth": "2026-01-01",
+      "totalAmount": 235.52,
+      "previousBalance": 0,
+      "closed": false,
+      "paid": false,
+      "createdAt": "2026-01-03T22:36:36.618072",
+      "updatedAt": "2026-01-03T22:36:36.628326"
+    }
+  ]
+}

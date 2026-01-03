@@ -11,6 +11,8 @@ Sistema de gerenciamento financeiro desenvolvido com Spring Boot.
 - Gradle 8.11.1
 - Docker & Docker Compose
 - Swagger/OpenAPI 3
+- Apache POI 5.2.5 (Processamento de arquivos Excel)
+- Apache Commons CSV 1.10.0 (Processamento de arquivos CSV)
 
 ## Requisitos
 
@@ -90,6 +92,11 @@ Após iniciar a aplicação, a documentação interativa estará disponível em:
 - Swagger UI: http://localhost:8080/swagger-ui.html
 - OpenAPI JSON: http://localhost:8080/api-docs
 
+### Documentação Adicional
+
+- **API Completa**: `docs/api-doc.md`
+- **Guia de Importação/Exportação**: `docs/import-export-guide.md`
+
 ## Estrutura do Projeto
 
 ```
@@ -123,6 +130,8 @@ truebalance/
 │           ├── infra/db/adapter/   # Testes de Adapters
 │           └── integration/        # Testes de Integração E2E
 ├── docs/                           # Documentação do Projeto
+│   ├── api-doc.md                  # Documentação completa da API
+│   ├── import-export-guide.md      # Guia de importação/exportação
 │   ├── tasks.md                    # Tarefas de Implementação
 │   ├── test-tasks.md               # Tarefas de Testes
 │   └── test-plan.md                # Plano de Testes
@@ -166,6 +175,14 @@ O TrueBalance implementa um sistema completo de gerenciamento financeiro com as 
 - Atualização automática do limite disponível
 - Permite pagamentos que excedem o valor da fatura (gerando crédito)
 - Validação de permissão de pagamento parcial por cartão
+
+### 6. Importação e Exportação de Dados
+- **Exportação Unificada**: Exporta todas as entidades para um único arquivo Excel
+- **Importação Unificada**: Importa contas, cartões e faturas de um arquivo Excel com múltiplas abas
+- **Importação Individual**: Endpoints específicos para importar cada tipo de entidade
+- **Formatos Suportados**: CSV, XLS, XLSX
+- **Validação Automática**: Validação de dados, formatos e duplicatas
+- **Tratamento de Erros**: Relatório detalhado de erros e duplicatas encontradas
 
 ## Arquitetura
 

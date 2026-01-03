@@ -1,13 +1,11 @@
 package com.truebalance.truebalance.application.dto.input;
 
-import com.truebalance.truebalance.domain.entity.Invoice;
-import jakarta.validation.constraints.*;
-
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class InvoiceImportItemDTO {
-
     @NotNull(message = "ID do cartão de crédito é obrigatório")
     private Long creditCardId;
 
@@ -15,46 +13,18 @@ public class InvoiceImportItemDTO {
     private LocalDate referenceMonth;
 
     @NotNull(message = "Valor total é obrigatório")
-    @PositiveOrZero(message = "Valor total deve ser positivo ou zero")
+    @Positive(message = "Valor total deve ser positivo")
     private BigDecimal totalAmount;
 
-    @PositiveOrZero(message = "Saldo anterior deve ser positivo ou zero")
     private BigDecimal previousBalance;
 
     private Boolean closed;
 
     private Boolean paid;
 
-    @NotNull(message = "Número da linha é obrigatório")
-    private Integer lineNumber;
-
     public InvoiceImportItemDTO() {
     }
 
-    public InvoiceImportItemDTO(Long creditCardId, LocalDate referenceMonth,
-                                BigDecimal totalAmount, BigDecimal previousBalance,
-                                Boolean closed, Boolean paid, Integer lineNumber) {
-        this.creditCardId = creditCardId;
-        this.referenceMonth = referenceMonth;
-        this.totalAmount = totalAmount;
-        this.previousBalance = previousBalance;
-        this.closed = closed;
-        this.paid = paid;
-        this.lineNumber = lineNumber;
-    }
-
-    public Invoice toInvoice() {
-        Invoice invoice = new Invoice();
-        invoice.setCreditCardId(this.creditCardId);
-        invoice.setReferenceMonth(this.referenceMonth);
-        invoice.setTotalAmount(this.totalAmount);
-        invoice.setPreviousBalance(this.previousBalance != null ? this.previousBalance : BigDecimal.ZERO);
-        invoice.setClosed(this.closed != null ? this.closed : false);
-        invoice.setPaid(this.paid != null ? this.paid : false);
-        return invoice;
-    }
-
-    // Getters and Setters
     public Long getCreditCardId() {
         return creditCardId;
     }
@@ -101,13 +71,5 @@ public class InvoiceImportItemDTO {
 
     public void setPaid(Boolean paid) {
         this.paid = paid;
-    }
-
-    public Integer getLineNumber() {
-        return lineNumber;
-    }
-
-    public void setLineNumber(Integer lineNumber) {
-        this.lineNumber = lineNumber;
     }
 }

@@ -1,14 +1,11 @@
 package com.truebalance.truebalance.application.controller;
 
-import com.truebalance.truebalance.application.dto.input.CreditCardBulkImportRequestDTO;
 import com.truebalance.truebalance.application.dto.input.CreditCardRequestDTO;
 import com.truebalance.truebalance.application.dto.output.AvailableLimitDTO;
-import com.truebalance.truebalance.application.dto.output.CreditCardImportResultDTO;
 import com.truebalance.truebalance.application.dto.output.CreditCardResponseDTO;
 import com.truebalance.truebalance.application.dto.output.InvoiceResponseDTO;
 import com.truebalance.truebalance.domain.entity.CreditCard;
 import com.truebalance.truebalance.domain.entity.Invoice;
-import com.truebalance.truebalance.domain.service.FileImportService;
 import com.truebalance.truebalance.domain.usecase.*;
 import com.truebalance.truebalance.domain.usecase.AvailableLimitResult;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,8 +40,6 @@ public class CreditCardController {
     private final DeleteCreditCard deleteCreditCard;
     private final GetInvoicesByCreditCard getInvoicesByCreditCard;
     private final GetAvailableLimit getAvailableLimit;
-    private final ImportCreditCardsInBulk importCreditCardsInBulk;
-    private final FileImportService fileImportService;
 
     public CreditCardController(CreateCreditCard createCreditCard,
                                  GetAllCreditCards getAllCreditCards,
@@ -53,9 +47,7 @@ public class CreditCardController {
                                  UpdateCreditCard updateCreditCard,
                                  DeleteCreditCard deleteCreditCard,
                                  GetInvoicesByCreditCard getInvoicesByCreditCard,
-                                 GetAvailableLimit getAvailableLimit,
-                                 ImportCreditCardsInBulk importCreditCardsInBulk,
-                                 FileImportService fileImportService) {
+                                 GetAvailableLimit getAvailableLimit) {
         this.createCreditCard = createCreditCard;
         this.getAllCreditCards = getAllCreditCards;
         this.getCreditCardById = getCreditCardById;
@@ -63,8 +55,6 @@ public class CreditCardController {
         this.deleteCreditCard = deleteCreditCard;
         this.getInvoicesByCreditCard = getInvoicesByCreditCard;
         this.getAvailableLimit = getAvailableLimit;
-        this.importCreditCardsInBulk = importCreditCardsInBulk;
-        this.fileImportService = fileImportService;
     }
 
     @Operation(summary = "Criar novo cartão de crédito",
@@ -201,72 +191,6 @@ public class CreditCardController {
         AvailableLimitResult result = getAvailableLimit.execute(id);
         AvailableLimitDTO response = AvailableLimitDTO.fromResult(result);
         return ResponseEntity.ok(response);
-    }
-
-    @Operation(summary = "Importar cartões de crédito em massa",
-               description = "Importa cartões de crédito em massa a partir de uma lista de itens.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Importação processada com sucesso",
-                    content = @Content(mediaType = "application/json",
-                                      schema = @Schema(implementation = CreditCardImportResultDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content)
-    })
-    @PostMapping("/bulk-import")
-    public ResponseEntity<CreditCardImportResultDTO> bulkImport(
-            @Valid @RequestBody CreditCardBulkImportRequestDTO request) {
-
-        logger.info("POST /credit-cards/bulk-import - Importando {} itens com estratégia {}",
-                request.getItems().size(), request.getDuplicateStrategy());
-
-        CreditCardImportResultDTO result = importCreditCardsInBulk.execute(request);
-
-        logger.info("Importação concluída: {} criados, {} ignorados, {} erros",
-                result.getTotalCreated(), result.getTotalSkipped(), result.getTotalErrors());
-
-        return ResponseEntity.ok(result);
-    }
-
-    @Operation(summary = "Importar cartões de crédito de arquivo CSV/XLS",
-               description = "Importa cartões de crédito em massa a partir de um arquivo CSV ou XLS/XLSX. " +
-                             "O arquivo deve conter cabeçalhos: Nome, Limite de Crédito, Dia de Fechamento, Dia de Vencimento. " +
-                             "Opcionalmente: Permite Pagamento Parcial.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Importação concluída com sucesso",
-                    content = @Content(mediaType = "application/json",
-                                      schema = @Schema(implementation = CreditCardImportResultDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Arquivo inválido ou erro no processamento", content = @Content)
-    })
-    @PostMapping(value = "/bulk-import-file", consumes = "multipart/form-data")
-    public ResponseEntity<CreditCardImportResultDTO> bulkImportFromFile(
-            @Parameter(description = "Arquivo CSV ou XLS/XLSX para importação", required = true)
-            @RequestParam("file") MultipartFile file,
-            @Parameter(description = "Estratégia para duplicatas: SKIP ou CREATE_DUPLICATE", required = true)
-            @RequestParam("duplicateStrategy") CreditCardBulkImportRequestDTO.DuplicateStrategy duplicateStrategy) {
-
-        logger.info("POST /credit-cards/bulk-import-file - Importando arquivo: {} com estratégia {}",
-                file.getOriginalFilename(), duplicateStrategy);
-
-        try {
-            // Parse file
-            List<com.truebalance.truebalance.application.dto.input.CreditCardImportItemDTO> items =
-                    fileImportService.parseCreditCardsFromFile(file);
-
-            // Create request
-            CreditCardBulkImportRequestDTO request = new CreditCardBulkImportRequestDTO();
-            request.setItems(items);
-            request.setDuplicateStrategy(duplicateStrategy);
-
-            // Execute import
-            CreditCardImportResultDTO result = importCreditCardsInBulk.execute(request);
-
-            logger.info("Importação de arquivo concluída: {} criados, {} ignorados, {} erros",
-                    result.getTotalCreated(), result.getTotalSkipped(), result.getTotalErrors());
-
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            logger.error("Erro ao importar arquivo: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
     }
 
 }

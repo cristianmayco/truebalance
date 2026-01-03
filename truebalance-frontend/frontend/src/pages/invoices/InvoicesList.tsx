@@ -7,14 +7,10 @@ import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { InvoiceCard } from '@/components/invoices/InvoiceCard'
-import { ExportButton } from '@/components/ui/ExportButton'
-import { ImportButton } from '@/components/ui/ImportButton'
-import { formatInvoicesForExport } from '@/utils/exportFormatters'
-import { useQueryClient } from '@tanstack/react-query'
+import { ImportExport } from '@/components/ui/ImportExport'
 
 export function InvoicesList() {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { creditCardId } = useParams<{ creditCardId: string }>()
   const cardId = creditCardId ? parseInt(creditCardId) : undefined
 
@@ -79,21 +75,7 @@ export function InvoicesList() {
               Acompanhe todas as faturas do cartão
             </p>
           </div>
-          {!isEmpty && (
-            <>
-              <ImportButton
-                entityType="invoices"
-                onImportComplete={() => {
-                  queryClient.invalidateQueries({ queryKey: ['invoices'] })
-                }}
-              />
-              <ExportButton
-                data={sortedInvoices}
-                filename={`faturas_${creditCard.name.replace(/\s+/g, '_')}`}
-                formatData={formatInvoicesForExport}
-              />
-            </>
-          )}
+          <ImportExport />
         </div>
 
         {/* Content */}
