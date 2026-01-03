@@ -1,0 +1,16 @@
+# TrueBalance - Robots.txt
+# Sistema de Gerenciamento Financeiro Pessoal
+
+# Allow all bots (adjust based on production needs)
+User-agent: *
+Allow: /
+
+# Disallow private/sensitive areas if any
+Disallow: /api/
+Disallow: /*.json$
+
+# Sitemap location
+Sitemap: https://truebalance.app/sitemap.xml
+
+# Crawl-delay (optional, adjust if needed)
+# Crawl-delay: 1
