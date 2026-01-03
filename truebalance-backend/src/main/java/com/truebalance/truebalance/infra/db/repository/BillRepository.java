@@ -14,10 +14,8 @@ import java.time.LocalDateTime;
 public interface BillRepository extends JpaRepository<BillEntity, Long> {
 
     @Query("SELECT b FROM BillEntity b WHERE " +
-           "(:name IS NULL OR LOWER(b.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
-           "(:startDate IS NULL OR b.executionDate >= :startDate) AND " +
-           "(:endDate IS NULL OR b.executionDate <= :endDate)")
-    Page<BillEntity> findAll(Pageable pageable, 
+           "COALESCE(:name, '') = '' OR LOWER(b.name) LIKE CONCAT('%', LOWER(COALESCE(:name, '')), '%')")
+    Page<BillEntity> findAll(Pageable pageable,
                              @Param("name") String name,
                              @Param("startDate") LocalDateTime startDate,
                              @Param("endDate") LocalDateTime endDate);

@@ -44,7 +44,11 @@ export default function Reports() {
     error: errorCategories,
   } = useQuery({
     queryKey: ['categoryBreakdown', selectedYear],
-    queryFn: () => reportsService.getCategoryBreakdown(),
+    queryFn: () => {
+      const startDate = new Date(selectedYear, 0, 1);
+      const endDate = new Date(selectedYear, 11, 31, 23, 59, 59);
+      return reportsService.getCategoryBreakdown(startDate, endDate);
+    },
   });
 
   // Generate year options (current year and 5 years back)

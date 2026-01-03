@@ -46,20 +46,29 @@ export default function ConsolidatedView() {
 
     // Total bills this month
     const thisMonthBills = bills.filter((bill: any) => {
-      const billDate = new Date(bill.billDate);
+      const billDateStr = bill.billDate || bill.date || bill.executionDate;
+      if (!billDateStr) return false;
+      const billDate = new Date(billDateStr);
       return billDate.getMonth() === currentMonth && billDate.getFullYear() === currentYear;
     });
 
     const totalBillsThisMonth = thisMonthBills.reduce(
-      (sum: number, bill: any) => sum + bill.totalAmount / bill.installments,
+      (sum: number, bill: any) => {
+        const installments = bill.numberOfInstallments || 1;
+        return sum + bill.totalAmount / installments;
+      },
       0
     );
 
     // Total invoices this month
     const thisMonthInvoices = invoices.filter((invoice: any) => {
+      if (!invoice.referenceMonth) return false;
       // Parse date string as local date to avoid timezone issues
-      const [year, month, day] = invoice.referenceMonth.split('-').map(Number);
-      const invoiceDate = new Date(year, month - 1, day); // month is 0-indexed
+      const dateParts = invoice.referenceMonth.split('-');
+      if (dateParts.length < 2) return false;
+      const year = parseInt(dateParts[0]);
+      const month = parseInt(dateParts[1]);
+      const invoiceDate = new Date(year, month - 1, 1); // month is 0-indexed
       return invoiceDate.getMonth() === currentMonth && invoiceDate.getFullYear() === currentYear;
     });
 
@@ -78,8 +87,13 @@ export default function ConsolidatedView() {
 
     // Pending bills
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const pendingBills = bills.filter((bill: any) => {
-      return new Date(bill.billDate) >= today && !bill.isPaid;
+      const billDateStr = bill.billDate || bill.date || bill.executionDate;
+      if (!billDateStr) return false;
+      const billDate = new Date(billDateStr);
+      billDate.setHours(0, 0, 0, 0);
+      return billDate >= today && !bill.isPaid;
     });
 
     return {

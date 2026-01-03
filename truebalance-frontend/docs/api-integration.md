@@ -160,19 +160,22 @@ export interface PaginatedResponse<T> {
 ```typescript
 // src/services/bills.service.ts
 import apiClient from '@/lib/axios'
-import type { BillRequestDTO, BillResponseDTO, PaginatedResponse } from '@/types/dtos'
+import type { BillRequestDTO, BillResponseDTO, BillFiltersDTO, PaginatedResponse } from '@/types/dtos'
 
 export const billsService = {
   // Listar todas as contas
-  async getAll(params?: {
-    page?: number
-    limit?: number
-    search?: string
-    startDate?: string
-    endDate?: string
-  }): Promise<PaginatedResponse<BillResponseDTO>> {
-    const { data } = await apiClient.get('/bills', { params })
-    return data
+  async getAll(params?: BillFiltersDTO): Promise<PaginatedResponse<BillResponseDTO>> {
+    const response = await apiClient.get<PaginatedResponse<BillResponseDTO>>('/bills', {
+      params: {
+        page: params?.page ?? 0,
+        size: params?.size ?? 10,
+        sort: params?.sort ?? 'executionDate,desc',
+        name: params?.name,
+        startDate: params?.startDate,
+        endDate: params?.endDate,
+      },
+    })
+    return response.data
   },
 
   // Buscar conta por ID
@@ -382,6 +385,142 @@ export function BillsList() {
   )
 }
 ```
+
+### Reports Service
+
+```typescript
+// src/services/reports.service.ts
+import { axiosInstance } from '@/lib/axios'
+import type { PaginatedResponse } from '@/types/dtos/common.dto'
+import type { BillResponseDTO } from '@/types/dtos/bill.dto'
+import type { InvoiceResponseDTO } from '@/types/dtos/invoice.dto'
+
+export interface MonthlyExpense {
+  month: string
+  year: number
+  bills: number
+  creditCards: number
+  total: number
+}
+
+export interface CategoryExpense {
+  category: string
+  amount: number
+  percentage: number
+  count: number
+}
+
+export interface ExpenseMetrics {
+  totalExpenses: number
+  averageMonthly: number
+  highestMonth: { month: string; amount: number }
+  lowestMonth: { month: string; amount: number }
+  periodComparison: {
+    current: number
+    previous: number
+    percentageChange: number
+  }
+}
+
+class ReportsService {
+  /**
+   * Busca gastos mensais por período (últimos N meses)
+   */
+  async getMonthlyExpensesByPeriod(months: number): Promise<MonthlyExpense[]> {
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setMonth(startDate.getMonth() - months)
+    
+    const [billsResponse, invoicesResponse] = await Promise.all([
+      axiosInstance.get<PaginatedResponse<BillResponseDTO>>('/bills', {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          size: 1000,
+          page: 0,
+        },
+      }),
+      axiosInstance.get<PaginatedResponse<InvoiceResponseDTO>>('/invoices', {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          size: 1000,
+          page: 0,
+        },
+      }),
+    ])
+
+    const bills = billsResponse.data.content || []
+    const invoices = invoicesResponse.data.content || []
+    
+    // Agrupa por mês e calcula totais
+    // ... lógica de agregação
+  }
+
+  /**
+   * Calcula gastos mensais para um ano específico
+   */
+  async getMonthlyExpenses(
+    year: number,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<MonthlyExpense[]> {
+    // Similar ao getMonthlyExpensesByPeriod mas com range específico
+  }
+
+  /**
+   * Calcula distribuição de gastos por categoria
+   */
+  async getCategoryBreakdown(
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<CategoryExpense[]> {
+    const [billsResponse, invoicesResponse] = await Promise.all([
+      axiosInstance.get<PaginatedResponse<BillResponseDTO>>('/bills', {
+        params: { startDate, endDate, size: 1000, page: 0 },
+      }),
+      axiosInstance.get<PaginatedResponse<InvoiceResponseDTO>>('/invoices', {
+        params: { startDate, endDate, size: 1000, page: 0 },
+      }),
+    ])
+
+    // Agrupa por categoria e calcula percentuais
+  }
+
+  /**
+   * Calcula métricas gerais de gastos
+   */
+  async getExpenseMetrics(year: number): Promise<ExpenseMetrics> {
+    const monthlyExpenses = await this.getMonthlyExpenses(year)
+    // Calcula métricas baseadas nos gastos mensais
+  }
+
+  /**
+   * Busca resumo consolidado de finanças
+   */
+  async getConsolidatedSummary() {
+    const [billsResponse, invoicesResponse, creditCardsResponse] = await Promise.all([
+      axiosInstance.get<PaginatedResponse<BillResponseDTO>>('/bills', {
+        params: { size: 1000, page: 0 },
+      }),
+      axiosInstance.get<PaginatedResponse<InvoiceResponseDTO>>('/invoices', {
+        params: { size: 1000, page: 0 },
+      }),
+      axiosInstance.get('/credit-cards'),
+    ])
+
+    return {
+      bills: billsResponse.data.content || [],
+      invoices: invoicesResponse.data.content || [],
+      creditCards: creditCardsResponse.data || [],
+    }
+  }
+}
+
+export const reportsService = new ReportsService()
+```
+
+**Nota Importante**: Todos os endpoints retornam dados paginados (`PaginatedResponse`). Sempre acesse os dados através de `response.data.content` para arrays.
 
 ---
 

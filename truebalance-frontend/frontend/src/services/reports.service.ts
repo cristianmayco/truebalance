@@ -1,6 +1,8 @@
 import { axiosInstance } from '@/lib/axios';
 import type { BillResponseDTO } from '@/types/dtos/bill.dto';
-import type { InvoiceResponseDTO } from '@/types/dtos/invoice.dto';
+import type { PaginatedResponse } from '@/types/dtos/common.dto';
+import { creditCardsService } from './creditCards.service';
+import { invoicesService } from './invoices.service';
 
 export interface MonthlyExpense {
   month: string;
@@ -42,28 +44,73 @@ export interface ExpenseMetrics {
  */
 class ReportsService {
   /**
-   * Calcula gastos mensais com base em contas e faturas
+   * Formata data no formato ISO_DATE_TIME (yyyy-MM-ddTHH:mm:ss) para compatibilidade com backend Java
    */
-  async getMonthlyExpenses(year: number): Promise<MonthlyExpense[]> {
+  private formatDateTime(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  }
+  /**
+   * Busca gastos mensais por período (últimos N meses)
+   */
+  async getMonthlyExpensesByPeriod(months: number): Promise<MonthlyExpense[]> {
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
+    
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+    startDate.setDate(1); // Primeiro dia do mês
+    startDate.setHours(0, 0, 0, 0);
+    
+    // Use the same logic as getMonthlyExpenses but with custom date range
     try {
-      // Fetch bills and invoices for the year
-      const [billsResponse, invoicesResponse] = await Promise.all([
-        axiosInstance.get<BillResponseDTO[]>('/bills', {
-          params: {
-            year,
-            pageSize: 1000, // Get all for the year
-          },
-        }),
-        axiosInstance.get<InvoiceResponseDTO[]>('/invoices', {
-          params: {
-            year,
-            pageSize: 1000,
-          },
-        }),
-      ]);
+      // Fetch bills with date filters
+      const billsResponse = await axiosInstance.get<PaginatedResponse<BillResponseDTO>>('/bills', {
+        params: {
+          startDate: this.formatDateTime(startDate),
+          endDate: this.formatDateTime(endDate),
+          size: 1000,
+          page: 0,
+        },
+      });
 
-      const bills = billsResponse.data;
-      const invoices = invoicesResponse.data;
+      const bills = billsResponse.data.content || [];
+
+      // Fetch all credit cards first, then get invoices for each
+      // NOTE: Invoices API doesn't support date filters, so we fetch all and filter client-side
+      const creditCards = await creditCardsService.getAll();
+      
+      // Fetch invoices for all credit cards in parallel
+      const invoicePromises = creditCards.map(card => 
+        invoicesService.getByCreditCard(card.id).catch(() => []) // Return empty array on error
+      );
+      
+      const invoiceArrays = await Promise.all(invoicePromises);
+      const allInvoices = invoiceArrays.flat();
+
+      // Filter invoices by date range (based on referenceMonth)
+      const invoices = allInvoices.filter((invoice) => {
+        if (!invoice.referenceMonth) return false;
+        
+        // Parse referenceMonth (format: YYYY-MM-DD or YYYY-MM)
+        const dateParts = invoice.referenceMonth.split('-');
+        if (dateParts.length < 2) return false;
+        
+        const year = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]);
+        if (isNaN(year) || isNaN(month) || month < 1 || month > 12) return false;
+        
+        // Create date for the first day of the invoice month
+        const invoiceDate = new Date(year, month - 1, 1);
+        
+        // Check if invoice date is within range
+        return invoiceDate >= startDate && invoiceDate <= endDate;
+      });
 
       // Group by month
       const monthlyData = new Map<string, MonthlyExpense>();
@@ -74,6 +121,9 @@ class ReportsService {
         if (!billDate) return;
         
         const date = new Date(billDate);
+        // Valida se a data é válida
+        if (isNaN(date.getTime())) return;
+        
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
         if (!monthlyData.has(monthKey)) {
@@ -88,16 +138,31 @@ class ReportsService {
 
         const data = monthlyData.get(monthKey)!;
         const installments = bill.numberOfInstallments || 1;
-        const installmentValue = bill.totalAmount / installments;
-        data.bills += installmentValue;
-        data.total += installmentValue;
+        const installmentValue = (bill.totalAmount || 0) / installments;
+        if (!isNaN(installmentValue) && isFinite(installmentValue)) {
+          data.bills += installmentValue;
+          data.total += installmentValue;
+        }
       });
 
       // Process invoices
       invoices.forEach((invoice) => {
+        const invoiceDate = invoice.referenceMonth;
+        if (!invoiceDate) return;
+        
         // Parse date string as local date to avoid timezone issues
-        const [year, month, day] = invoice.referenceMonth.split('-').map(Number);
-        const date = new Date(year, month - 1, day); // month is 0-indexed
+        const dateParts = invoiceDate.split('-');
+        if (dateParts.length < 2) return;
+        
+        const year = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]);
+        // Valida se ano e mês são válidos
+        if (isNaN(year) || isNaN(month) || month < 1 || month > 12) return;
+        
+        const date = new Date(year, month - 1, 1); // month is 0-indexed
+        // Valida se a data é válida
+        if (isNaN(date.getTime())) return;
+        
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
         if (!monthlyData.has(monthKey)) {
@@ -111,8 +176,161 @@ class ReportsService {
         }
 
         const data = monthlyData.get(monthKey)!;
-        data.creditCards += invoice.totalAmount;
-        data.total += invoice.totalAmount;
+        const amount = invoice.totalAmount || 0;
+        if (!isNaN(amount) && isFinite(amount)) {
+          data.creditCards += amount;
+          data.total += amount;
+        }
+      });
+
+      // Convert to array and sort by month (most recent first)
+      // Helper para obter índice do mês
+      const getMonthIndex = (month: string): number => {
+        const normalized = month
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+        const monthOrder = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 
+                           'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        const index = monthOrder.indexOf(normalized);
+        return index !== -1 ? index : 0; // Fallback para 0 se não encontrar
+      };
+      
+      return Array.from(monthlyData.values()).sort((a, b) => {
+        // Ordena por ano (mais recente primeiro) e depois por mês (mais recente primeiro)
+        if (a.year !== b.year) {
+          return b.year - a.year;
+        }
+        const aMonthIndex = getMonthIndex(a.month);
+        const bMonthIndex = getMonthIndex(b.month);
+        return bMonthIndex - aMonthIndex;
+      });
+    } catch (error) {
+      console.error('Error fetching monthly expenses by period:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calcula gastos mensais com base em contas e faturas
+   */
+  async getMonthlyExpenses(year: number, startDate?: Date, endDate?: Date): Promise<MonthlyExpense[]> {
+    try {
+      // Calculate date range if not provided
+      const start = startDate || new Date(year, 0, 1);
+      const end = endDate || new Date(year, 11, 31, 23, 59, 59);
+
+      // Fetch bills with date filters
+      const billsResponse = await axiosInstance.get<PaginatedResponse<BillResponseDTO>>('/bills', {
+        params: {
+          startDate: this.formatDateTime(start),
+          endDate: this.formatDateTime(end),
+          size: 1000, // Get all for the period
+          page: 0,
+        },
+      });
+
+      const bills = billsResponse.data.content || [];
+
+      // Fetch all credit cards first, then get invoices for each
+      const creditCards = await creditCardsService.getAll();
+      
+      // Fetch invoices for all credit cards in parallel
+      const invoicePromises = creditCards.map(card => 
+        invoicesService.getByCreditCard(card.id).catch(() => []) // Return empty array on error
+      );
+      
+      const invoiceArrays = await Promise.all(invoicePromises);
+      const allInvoices = invoiceArrays.flat();
+
+      // Filter invoices by date range (based on referenceMonth)
+      const invoices = allInvoices.filter((invoice) => {
+        if (!invoice.referenceMonth) return false;
+        
+        // Parse referenceMonth (format: YYYY-MM-DD or YYYY-MM)
+        const dateParts = invoice.referenceMonth.split('-');
+        if (dateParts.length < 2) return false;
+        
+        const year = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]);
+        if (isNaN(year) || isNaN(month) || month < 1 || month > 12) return false;
+        
+        // Create date for the first day of the invoice month
+        const invoiceDate = new Date(year, month - 1, 1);
+        
+        // Check if invoice date is within range
+        return invoiceDate >= start && invoiceDate <= end;
+      });
+
+      // Group by month
+      const monthlyData = new Map<string, MonthlyExpense>();
+
+      // Process bills
+      bills.forEach((bill) => {
+        const billDate = bill.billDate || bill.date || bill.executionDate;
+        if (!billDate) return;
+        
+        const date = new Date(billDate);
+        // Valida se a data é válida
+        if (isNaN(date.getTime())) return;
+        
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+        if (!monthlyData.has(monthKey)) {
+          monthlyData.set(monthKey, {
+            month: date.toLocaleDateString('pt-BR', { month: 'long' }),
+            year: date.getFullYear(),
+            bills: 0,
+            creditCards: 0,
+            total: 0,
+          });
+        }
+
+        const data = monthlyData.get(monthKey)!;
+        const installments = bill.numberOfInstallments || 1;
+        const installmentValue = (bill.totalAmount || 0) / installments;
+        if (!isNaN(installmentValue) && isFinite(installmentValue)) {
+          data.bills += installmentValue;
+          data.total += installmentValue;
+        }
+      });
+
+      // Process invoices
+      invoices.forEach((invoice) => {
+        const invoiceDate = invoice.referenceMonth;
+        if (!invoiceDate) return;
+        
+        // Parse date string as local date to avoid timezone issues
+        const dateParts = invoiceDate.split('-');
+        if (dateParts.length < 2) return;
+        
+        const year = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]);
+        // Valida se ano e mês são válidos
+        if (isNaN(year) || isNaN(month) || month < 1 || month > 12) return;
+        
+        const date = new Date(year, month - 1, 1); // month is 0-indexed
+        // Valida se a data é válida
+        if (isNaN(date.getTime())) return;
+        
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+        if (!monthlyData.has(monthKey)) {
+          monthlyData.set(monthKey, {
+            month: date.toLocaleDateString('pt-BR', { month: 'long' }),
+            year: date.getFullYear(),
+            bills: 0,
+            creditCards: 0,
+            total: 0,
+          });
+        }
+
+        const data = monthlyData.get(monthKey)!;
+        const amount = invoice.totalAmount || 0;
+        if (!isNaN(amount) && isFinite(amount)) {
+          data.creditCards += amount;
+          data.total += amount;
+        }
       });
 
       // Convert to array and sort by month
@@ -132,16 +350,55 @@ class ReportsService {
   async getCategoryBreakdown(startDate?: Date, endDate?: Date): Promise<CategoryExpense[]> {
     try {
       const params: any = {};
-      if (startDate) params.startDate = startDate.toISOString();
-      if (endDate) params.endDate = endDate.toISOString();
+      if (startDate) params.startDate = this.formatDateTime(startDate);
+      if (endDate) params.endDate = this.formatDateTime(endDate);
 
-      const [billsResponse, invoicesResponse] = await Promise.all([
-        axiosInstance.get<BillResponseDTO[]>('/bills', { params: { ...params, pageSize: 1000 } }),
-        axiosInstance.get<InvoiceResponseDTO[]>('/invoices', { params: { ...params, pageSize: 1000 } }),
-      ]);
+      // Fetch bills with date filters
+      const billsResponse = await axiosInstance.get<PaginatedResponse<BillResponseDTO>>('/bills', { 
+        params: { 
+          ...params, 
+          size: 1000,
+          page: 0,
+        } 
+      });
 
-      const bills = billsResponse.data;
-      const invoices = invoicesResponse.data;
+      const bills = billsResponse.data.content || [];
+
+      // Fetch all credit cards first, then get invoices for each
+      const creditCards = await creditCardsService.getAll();
+      
+      // Fetch invoices for all credit cards in parallel
+      const invoicePromises = creditCards.map(card => 
+        invoicesService.getByCreditCard(card.id).catch(() => []) // Return empty array on error
+      );
+      
+      const invoiceArrays = await Promise.all(invoicePromises);
+      const allInvoices = invoiceArrays.flat();
+
+      // Filter invoices by date range if dates provided
+      let invoices = allInvoices;
+      if (startDate || endDate) {
+        const start = startDate || new Date(0); // Beginning of time if not provided
+        const end = endDate || new Date(); // Now if not provided
+        
+        invoices = allInvoices.filter((invoice) => {
+          if (!invoice.referenceMonth) return false;
+          
+          // Parse referenceMonth (format: YYYY-MM-DD or YYYY-MM)
+          const dateParts = invoice.referenceMonth.split('-');
+          if (dateParts.length < 2) return false;
+          
+          const year = parseInt(dateParts[0]);
+          const month = parseInt(dateParts[1]);
+          if (isNaN(year) || isNaN(month) || month < 1 || month > 12) return false;
+          
+          // Create date for the first day of the invoice month
+          const invoiceDate = new Date(year, month - 1, 1);
+          
+          // Check if invoice date is within range
+          return invoiceDate >= start && invoiceDate <= end;
+        });
+      }
 
       const categoryMap = new Map<string, { amount: number; count: number }>();
       let totalAmount = 0;
@@ -257,16 +514,29 @@ class ReportsService {
    */
   async getConsolidatedSummary() {
     try {
-      const [bills, invoices, creditCards] = await Promise.all([
-        axiosInstance.get('/bills', { params: { pageSize: 1000 } }),
-        axiosInstance.get('/invoices', { params: { pageSize: 1000 } }),
-        axiosInstance.get('/credit-cards'),
-      ]);
+      // Fetch bills
+      const billsResponse = await axiosInstance.get<PaginatedResponse<BillResponseDTO>>('/bills', { 
+        params: { 
+          size: 1000,
+          page: 0,
+        } 
+      });
+
+      // Fetch all credit cards
+      const creditCards = await creditCardsService.getAll();
+
+      // Fetch invoices for all credit cards in parallel
+      const invoicePromises = creditCards.map(card => 
+        invoicesService.getByCreditCard(card.id).catch(() => []) // Return empty array on error
+      );
+      
+      const invoiceArrays = await Promise.all(invoicePromises);
+      const allInvoices = invoiceArrays.flat();
 
       return {
-        bills: bills.data,
-        invoices: invoices.data,
-        creditCards: creditCards.data,
+        bills: billsResponse.data.content || [],
+        invoices: allInvoices,
+        creditCards: creditCards,
       };
     } catch (error) {
       console.error('Error fetching consolidated summary:', error);

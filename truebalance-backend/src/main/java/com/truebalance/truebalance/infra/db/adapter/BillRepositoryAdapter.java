@@ -56,11 +56,36 @@ public class BillRepositoryAdapter implements BillRepositoryPort {
 
     @Override
     public Page<Bill> findAll(Pageable pageable, String name, LocalDateTime startDate, LocalDateTime endDate) {
-        logger.debug("Buscando contas com filtros: page={}, size={}, name={}, startDate={}, endDate={}", 
+        logger.debug("Buscando contas com filtros: page={}, size={}, name={}, startDate={}, endDate={}",
             pageable.getPageNumber(), pageable.getPageSize(), name, startDate, endDate);
-        Page<BillEntity> entities = repository.findAll(pageable, name, startDate, endDate);
-        logger.debug("Encontradas {} entidades", entities.getNumberOfElements());
-        return entities.map(this::toDomain);
+
+        // Fetch all with name filter and manually filter by dates
+        Page<BillEntity> allEntities = repository.findAll(pageable, name, startDate, endDate);
+
+        // Apply date filters manually if needed
+        if (startDate != null || endDate != null) {
+            List<BillEntity> filteredList = allEntities.getContent().stream()
+                .filter(entity -> {
+                    if (startDate != null && entity.getExecutionDate().isBefore(startDate)) {
+                        return false;
+                    }
+                    if (endDate != null && entity.getExecutionDate().isAfter(endDate)) {
+                        return false;
+                    }
+                    return true;
+                })
+                .collect(java.util.stream.Collectors.toList());
+
+            logger.debug("Encontradas {} entidades após filtro de data", filteredList.size());
+            return new org.springframework.data.domain.PageImpl<>(
+                filteredList.stream().map(this::toDomain).collect(java.util.stream.Collectors.toList()),
+                pageable,
+                filteredList.size()
+            );
+        }
+
+        logger.debug("Encontradas {} entidades", allEntities.getNumberOfElements());
+        return allEntities.map(this::toDomain);
     }
 
     @Override

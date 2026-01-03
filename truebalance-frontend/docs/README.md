@@ -26,6 +26,7 @@ Documentação completa das telas da SPA (Single Page Application) do TrueBalanc
 
 #### Relatórios
 - [10. Relatórios e Gráficos](screens/10-reports-charts.md) - Análises financeiras
+- [Dashboard e Relatórios](dashboard-reports.md) - Documentação completa de Dashboard e Relatórios
 
 ### 🧩 Componentes
 
@@ -40,6 +41,7 @@ Documentação completa das telas da SPA (Single Page Application) do TrueBalanc
 - [UI/UX Guidelines](ui-ux-guidelines.md) - Design system, cores, tipografia
 - [Responsive Design](responsive-design.md) - Mobile-first, breakpoints
 - [API Integration](api-integration.md) - Padrões de integração com backend
+- [Dashboard e Relatórios](dashboard-reports.md) - Funcionalidades de Dashboard e Relatórios
 
 ## 🎨 Design System
 
