@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,6 +28,9 @@ export function BillForm() {
   const { mutate: createBill, isPending: isCreating } = useCreateBill()
   const { mutate: updateBill, isPending: isUpdating } = useUpdateBill()
 
+  // Estado para controlar se o usuário está informando o valor total ou o valor da parcela
+  const [isInputTotal, setIsInputTotal] = useState(true)
+
   const {
     register,
     handleSubmit,
@@ -47,6 +50,12 @@ export function BillForm() {
     },
   })
 
+  // Limpar o campo de valor quando alternar entre os modos
+  const handleToggleInputMode = (checked: boolean) => {
+    setIsInputTotal(checked)
+    setValue('totalAmount', 0)
+  }
+
   // Load bill data when editing
   useEffect(() => {
     if (bill && isEditMode) {
@@ -60,24 +69,39 @@ export function BillForm() {
     }
   }, [bill, isEditMode, setValue])
 
-  // Calculate installment amount
+  // Watch form values
   const totalAmount = watch('totalAmount')
   const numberOfInstallments = watch('numberOfInstallments')
-  const installmentAmount = useMemo(() => {
-    if (totalAmount > 0 && numberOfInstallments > 0) {
-      return totalAmount / numberOfInstallments
+
+  // Calculate installment amount or total amount based on input mode
+  const calculatedValue = useMemo(() => {
+    if (isInputTotal) {
+      // Se o usuário está informando o valor total, calcula o valor da parcela
+      if (totalAmount > 0 && numberOfInstallments > 0) {
+        return totalAmount / numberOfInstallments
+      }
+    } else {
+      // Se o usuário está informando o valor da parcela, calcula o valor total
+      if (totalAmount > 0 && numberOfInstallments > 0) {
+        return totalAmount * numberOfInstallments
+      }
     }
     return 0
-  }, [totalAmount, numberOfInstallments])
+  }, [totalAmount, numberOfInstallments, isInputTotal])
 
   const onSubmit = (data: BillFormData) => {
     // Convert date string to ISO 8601 format for executionDate
     const executionDate = new Date(data.date).toISOString()
-    
+
+    // Calculate the correct totalAmount based on input mode
+    const finalTotalAmount = isInputTotal
+      ? data.totalAmount  // Usuário informou o valor total
+      : data.totalAmount * data.numberOfInstallments  // Usuário informou o valor da parcela
+
     const payload = {
       name: data.name,
       executionDate: executionDate,
-      totalAmount: data.totalAmount,
+      totalAmount: finalTotalAmount,
       numberOfInstallments: data.numberOfInstallments,
       description: data.description || undefined,
       isRecurring: data.isRecurring || false,
@@ -160,10 +184,34 @@ export function BillForm() {
             {...register('date')}
           />
 
+          {/* Input Mode Selection */}
+          <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <input
+              type="checkbox"
+              id="isInputTotal"
+              checked={isInputTotal}
+              onChange={(e) => handleToggleInputMode(e.target.checked)}
+              className="mt-1 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 dark:bg-slate-700 dark:border-slate-600 dark:focus:ring-blue-400"
+            />
+            <div className="flex-1">
+              <label
+                htmlFor="isInputTotal"
+                className="block text-sm font-medium text-blue-900 dark:text-blue-100 cursor-pointer"
+              >
+                Informar valor total
+              </label>
+              <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
+                {isInputTotal
+                  ? 'Você vai informar o valor total da conta e o sistema calculará o valor de cada parcela.'
+                  : 'Você vai informar o valor de cada parcela e o sistema calculará o valor total.'}
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               type="number"
-              label="Valor total"
+              label={isInputTotal ? 'Valor total' : 'Valor de cada parcela'}
               placeholder="0.00"
               step="0.01"
               min="0"
@@ -183,15 +231,20 @@ export function BillForm() {
             />
           </div>
 
-          {/* Installment Amount Display */}
-          {installmentAmount > 0 && (
-            <div className="p-4 bg-violet-50 dark:bg-violet-900/20 rounded-lg">
+          {/* Calculated Value Display */}
+          {calculatedValue > 0 && (
+            <div className="p-4 bg-violet-50 dark:bg-violet-900/20 rounded-lg border border-violet-200 dark:border-violet-800">
               <div className="text-sm text-violet-700 dark:text-violet-300">
-                Valor da parcela
+                {isInputTotal ? 'Valor de cada parcela' : 'Valor total'}
               </div>
               <div className="text-2xl font-bold text-violet-900 dark:text-violet-100 mt-1">
-                {formatCurrency(installmentAmount)}
+                {formatCurrency(calculatedValue)}
               </div>
+              {!isInputTotal && (
+                <div className="text-xs text-violet-600 dark:text-violet-400 mt-2">
+                  {numberOfInstallments}x de {formatCurrency(totalAmount)} = {formatCurrency(calculatedValue)}
+                </div>
+              )}
             </div>
           )}
 
