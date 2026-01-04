@@ -15,6 +15,8 @@ public class BillResponseDTO {
     private BigDecimal installmentAmount;
     private String description;
     private Boolean isRecurring;
+    private String category;  // Category name of the bill
+    private Long categoryId;  // Category ID (if linked to a Category entity)
     private Long creditCardId;  // Credit card ID if bill is linked to a credit card
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -39,7 +41,7 @@ public class BillResponseDTO {
 
     public BillResponseDTO(Long id, String name, LocalDateTime executionDate, BigDecimal totalAmount,
                            int numberOfInstallments, BigDecimal installmentAmount, String description,
-                           Boolean isRecurring, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                           Boolean isRecurring, String category, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.executionDate = executionDate;
@@ -48,6 +50,7 @@ public class BillResponseDTO {
         this.installmentAmount = installmentAmount;
         this.description = description;
         this.isRecurring = isRecurring != null ? isRecurring : false;
+        this.category = category;
         this.creditCardId = null;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -55,7 +58,7 @@ public class BillResponseDTO {
 
     public BillResponseDTO(Long id, String name, LocalDateTime executionDate, BigDecimal totalAmount,
                            int numberOfInstallments, BigDecimal installmentAmount, String description,
-                           Boolean isRecurring, Long creditCardId, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                           Boolean isRecurring, String category, Long creditCardId, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.executionDate = executionDate;
@@ -64,6 +67,7 @@ public class BillResponseDTO {
         this.installmentAmount = installmentAmount;
         this.description = description;
         this.isRecurring = isRecurring != null ? isRecurring : false;
+        this.category = category;
         this.creditCardId = creditCardId;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -79,6 +83,7 @@ public class BillResponseDTO {
                 bill.getInstallmentAmount(),
                 bill.getDescription(),
                 bill.getIsRecurring(),
+                bill.getCategory(),
                 null,  // creditCardId will be set separately if needed
                 bill.getCreatedAt(),
                 bill.getUpdatedAt()
@@ -86,7 +91,7 @@ public class BillResponseDTO {
     }
 
     public static BillResponseDTO fromBill(Bill bill, Long creditCardId) {
-        return new BillResponseDTO(
+        BillResponseDTO dto = new BillResponseDTO(
                 bill.getId(),
                 bill.getName(),
                 bill.getExecutionDate(),
@@ -95,10 +100,12 @@ public class BillResponseDTO {
                 bill.getInstallmentAmount(),
                 bill.getDescription(),
                 bill.getIsRecurring(),
+                bill.getCategory(),
                 creditCardId,
                 bill.getCreatedAt(),
                 bill.getUpdatedAt()
         );
+        return dto;
     }
 
     public Long getId() {
@@ -187,5 +194,13 @@ public class BillResponseDTO {
 
     public void setCreditCardId(Long creditCardId) {
         this.creditCardId = creditCardId;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 }

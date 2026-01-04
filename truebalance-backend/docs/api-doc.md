@@ -190,9 +190,9 @@ Importa contas, cartões de crédito e faturas de um único arquivo Excel com m�
 **Formato do Arquivo:**
 
 **Aba "Contas":**
-| ID | Nome | Descrição | Data | Valor Total | Número de Parcelas | Valor da Parcela | ID Cartão | Criado em | Atualizado em |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | Compra Mercado | ... | 10/01/2025 | R$ 400,00 | 4 | R$ 100,00 | 1 | ... | ... |
+| ID | Nome | Descrição | Categoria | Data | Valor Total | Número de Parcelas | Valor da Parcela | ID Cartão | Criado em | Atualizado em |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Compra Mercado | ... | Alimentação | 10/01/2025 | R$ 400,00 | 4 | R$ 100,00 | 1 | ... | ... |
 
 **Aba "Cartões de Crédito":**
 | ID | Nome | Limite de Crédito | Limite Disponível | Dia de Fechamento | Dia de Vencimento | Permite Pagamento Parcial | Criado em | Atualizado em |
@@ -269,6 +269,7 @@ Importa contas de um arquivo CSV ou XLS/XLSX.
 - `Valor Total` (obrigatório)
 - `Número de Parcelas` (obrigatório)
 - `Descrição` (opcional)
+- `Categoria` (opcional) - Ex: Moradia, Saúde, Educação
 - `ID Cartão` (opcional)
 
 ---
@@ -316,7 +317,7 @@ Importa cartões de crédito de um arquivo CSV ou XLS/XLSX.
 
 #### Criar Conta
 
-`POST /accounts`
+`POST /bills`
 
 ```json
 {
@@ -325,9 +326,20 @@ Importa cartões de crédito de um arquivo CSV ou XLS/XLSX.
   "totalAmount": 400.00,
   "numberOfInstallments": 4,
   "description": "Compras do mês",
+  "category": "Alimentação",
   "creditCardId": 1
 }
 ```
+
+**Campos:**
+- `name` (obrigatório): Nome da conta
+- `executionDate` (obrigatório): Data de execução (ISO 8601)
+- `totalAmount` (obrigatório): Valor total da conta
+- `numberOfInstallments` (obrigatório): Número de parcelas (1-120)
+- `description` (opcional): Descrição da conta
+- `category` (opcional): Categoria da conta (ex: "Moradia", "Saúde", "Educação")
+- `isRecurring` (opcional): Se a conta é recorrente (padrão: false)
+- `creditCardId` (opcional): ID do cartão de crédito associado
 
 Processamento interno:
 
@@ -340,27 +352,117 @@ Processamento interno:
 
 #### Listar Contas
 
-`GET /accounts`
+`GET /bills`
+
+**Parâmetros de consulta (todos opcionais):**
+- `page` (padrão: 0): Número da página
+- `size` (padrão: 10): Tamanho da página
+- `sort` (padrão: "executionDate,desc"): Ordenação (campo,direção)
+- `name`: Filtrar por nome (busca parcial, case-insensitive)
+- `startDate`: Data de início (ISO 8601)
+- `endDate`: Data de fim (ISO 8601)
+- `minAmount`: Valor mínimo
+- `maxAmount`: Valor máximo
+- `numberOfInstallments`: Quantidade exata de parcelas
+- `category`: Categoria exata (case-insensitive)
+- `creditCardId`: ID do cartão de crédito específico
+- `hasCreditCard`: true = com cartão, false = sem cartão
+
+**Exemplos:**
+
+```bash
+# Filtrar por valor mínimo
+GET /bills?minAmount=500
+
+# Filtrar por categoria
+GET /bills?category=Moradia
+
+# Filtrar contas com cartão de crédito
+GET /bills?hasCreditCard=true
+
+# Filtrar por cartão específico
+GET /bills?creditCardId=1
+
+# Filtrar por quantidade de parcelas
+GET /bills?numberOfInstallments=12
+
+# Combinar múltiplos filtros
+GET /bills?category=Moradia&minAmount=1000&hasCreditCard=true
+```
+
+**Resposta paginada:**
+```json
+{
+  "content": [
+    {
+      "id": 1,
+      "name": "Compra Mercado",
+      "executionDate": "2025-01-10T10:00:00",
+      "totalAmount": 400.00,
+      "numberOfInstallments": 4,
+      "installmentAmount": 100.00,
+      "description": "Compras do mês",
+      "category": "Alimentação",
+      "isRecurring": false,
+      "creditCardId": 1,
+      "createdAt": "2025-01-10T10:00:00",
+      "updatedAt": "2025-01-10T10:00:00"
+    }
+  ],
+  "page": 0,
+  "size": 10,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+---
+
+#### Listar Categorias Disponíveis
+
+`GET /bills/categories`
+
+Retorna uma lista de todas as categorias únicas usadas nas contas cadastradas, ordenadas alfabeticamente.
+
+**Resposta:**
+```json
+[
+  "Alimentação",
+  "Educação",
+  "Moradia",
+  "Saúde"
+]
+```
 
 ---
 
 #### Buscar Conta por ID
 
-`GET /accounts/{id}`
+`GET /bills/{id}`
 
 ---
 
 #### Atualizar Conta
 
-`PUT /accounts/{id}`
+`PUT /bills/{id}`
+
+Mesmos campos do POST /bills
 
 ---
 
 #### Excluir Conta
 
-`DELETE /accounts/{id}`
+`DELETE /bills/{id}`
 
 Ao excluir uma conta, todas as parcelas associadas devem ser removidas.
+
+---
+
+#### Listar Parcelas de uma Conta
+
+`GET /bills/{id}/installments`
+
+Retorna todas as parcelas de uma conta específica, ordenadas por número de parcela.
 
 ---
 

@@ -40,4 +40,17 @@ public class GetAllBills {
         logger.info("Contas encontradas com filtros: {} de {} total", bills.getNumberOfElements(), bills.getTotalElements());
         return bills;
     }
+
+    public Page<Bill> execute(Pageable pageable, String name, java.time.LocalDateTime startDate, java.time.LocalDateTime endDate,
+                              java.math.BigDecimal minAmount, java.math.BigDecimal maxAmount,
+                              Integer numberOfInstallments, String category, Long creditCardId, Boolean hasCreditCard) {
+        logger.info("Buscando contas com filtros avançados: page={}, size={}, name={}, startDate={}, endDate={}, " +
+                   "minAmount={}, maxAmount={}, numberOfInstallments={}, category={}, creditCardId={}, hasCreditCard={}", 
+            pageable.getPageNumber(), pageable.getPageSize(), name, startDate, endDate,
+            minAmount, maxAmount, numberOfInstallments, category, creditCardId, hasCreditCard);
+        Page<Bill> bills = repository.findAll(pageable, name, startDate, endDate, minAmount, maxAmount,
+                                              numberOfInstallments, category, creditCardId, hasCreditCard);
+        logger.info("Contas encontradas com filtros avançados: {} de {} total", bills.getNumberOfElements(), bills.getTotalElements());
+        return bills;
+    }
 }

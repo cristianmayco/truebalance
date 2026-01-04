@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, FileText, CreditCard, BarChart3, Layers } from 'lucide-react'
+import { Home, FileText, CreditCard, BarChart3, Tag } from 'lucide-react'
 
 interface NavItem {
   label: string
@@ -10,9 +10,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Início', icon: <Home className="w-5 h-5" />, href: '/' },
   { label: 'Contas', icon: <FileText className="w-5 h-5" />, href: '/bills' },
+  { label: 'Categorias', icon: <Tag className="w-5 h-5" />, href: '/categories' },
   { label: 'Cartões', icon: <CreditCard className="w-5 h-5" />, href: '/credit-cards' },
   { label: 'Relatórios', icon: <BarChart3 className="w-5 h-5" />, href: '/reports' },
-  { label: '360°', icon: <Layers className="w-5 h-5" />, href: '/consolidated' },
 ]
 
 export function BottomNav() {

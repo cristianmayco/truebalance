@@ -2,6 +2,8 @@ package com.truebalance.truebalance.application.exception;
 
 import com.truebalance.truebalance.application.dto.ErrorResponse;
 import com.truebalance.truebalance.domain.exception.BillNotFoundException;
+import com.truebalance.truebalance.domain.exception.CategoryAlreadyExistsException;
+import com.truebalance.truebalance.domain.exception.CategoryNotFoundException;
 import com.truebalance.truebalance.domain.exception.CreditCardNotFoundException;
 import com.truebalance.truebalance.domain.exception.CreditLimitExceededException;
 import com.truebalance.truebalance.domain.exception.InvalidPaymentAmountException;
@@ -54,6 +56,13 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(ex.getMessage()));
     }
 
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCategoryNotFound(CategoryNotFoundException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(ex.getMessage()));
+    }
+
     @ExceptionHandler(InvoiceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleInvoiceNotFound(InvoiceNotFoundException ex) {
         return ResponseEntity
@@ -78,6 +87,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(InvalidPaymentAmountException.class)
     public ResponseEntity<ErrorResponse> handleInvalidPaymentAmount(InvalidPaymentAmountException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoryAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleCategoryAlreadyExists(CategoryAlreadyExistsException ex) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(ex.getMessage()));

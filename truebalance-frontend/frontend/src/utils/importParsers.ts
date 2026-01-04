@@ -16,6 +16,7 @@ export const BILL_HEADERS_MAP: Record<string, string> = {
   'Valor Total': 'totalAmount',
   'Número de Parcelas': 'numberOfInstallments',
   'Valor da Parcela': 'installmentAmount', // Ignorar (calculado)
+  Categoria: 'category',
   'Criado em': 'createdAt', // Ignorar
   'Atualizado em': 'updatedAt', // Ignorar
 }
@@ -141,6 +142,7 @@ export const transformRowToBillImport = (
   // Mapear campos do CSV para o formato da API
   const name = row['Nome'] || row.name || ''
   const description = row['Descrição'] || row.description || undefined
+  const category = row['Categoria'] || row.category || undefined
   const dateStr = row['Data'] || row.date || row.executionDate || ''
   const totalAmountStr = row['Valor Total'] || row.totalAmount || '0'
   const numberOfInstallmentsStr =
@@ -185,9 +187,16 @@ export const transformRowToBillImport = (
     )
   }
 
+  if (category && category.length > 100) {
+    throw new Error(
+      `Linha ${lineNumber}: Categoria muito longa. Máximo de 100 caracteres`
+    )
+  }
+
   return {
     name: name.trim(),
     description: description?.trim(),
+    category: category?.trim(),
     executionDate,
     totalAmount,
     numberOfInstallments,

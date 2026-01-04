@@ -2,6 +2,7 @@ package com.truebalance.truebalance.config;
 
 import com.truebalance.truebalance.domain.port.BillRepositoryPort;
 import com.truebalance.truebalance.domain.port.CreditCardRepositoryPort;
+import com.truebalance.truebalance.domain.port.CategoryRepositoryPort;
 import com.truebalance.truebalance.domain.port.InstallmentRepositoryPort;
 import com.truebalance.truebalance.domain.port.InvoiceRepositoryPort;
 import com.truebalance.truebalance.domain.port.PartialPaymentRepositoryPort;
@@ -64,6 +65,37 @@ public class UseCaseConfig {
     @Bean
     public DeleteCreditCard deleteCreditCard(CreditCardRepositoryPort creditCardRepositoryPort) {
         return new DeleteCreditCard(creditCardRepositoryPort);
+    }
+
+    // Category Use Cases
+    @Bean
+    public CreateCategory createCategory(CategoryRepositoryPort categoryRepositoryPort) {
+        return new CreateCategory(categoryRepositoryPort);
+    }
+
+    @Bean
+    public GetAllCategories getAllCategories(CategoryRepositoryPort categoryRepositoryPort) {
+        return new GetAllCategories(categoryRepositoryPort);
+    }
+
+    @Bean
+    public GetCategoryById getCategoryById(CategoryRepositoryPort categoryRepositoryPort) {
+        return new GetCategoryById(categoryRepositoryPort);
+    }
+
+    @Bean
+    public UpdateCategory updateCategory(CategoryRepositoryPort categoryRepositoryPort) {
+        return new UpdateCategory(categoryRepositoryPort);
+    }
+
+    @Bean
+    public DeleteCategory deleteCategory(CategoryRepositoryPort categoryRepositoryPort) {
+        return new DeleteCategory(categoryRepositoryPort);
+    }
+
+    @Bean
+    public GetCategoryExpenses getCategoryExpenses(BillRepositoryPort billRepositoryPort) {
+        return new GetCategoryExpenses(billRepositoryPort);
     }
 
     @Bean
@@ -220,20 +252,23 @@ public class UseCaseConfig {
     public ExportData exportData(BillRepositoryPort billRepositoryPort,
                                  CreditCardRepositoryPort creditCardRepositoryPort,
                                  InvoiceRepositoryPort invoiceRepositoryPort,
-                                 InstallmentRepositoryPort installmentRepositoryPort) {
-        return new ExportData(billRepositoryPort, creditCardRepositoryPort, invoiceRepositoryPort, installmentRepositoryPort);
+                                 InstallmentRepositoryPort installmentRepositoryPort,
+                                 CategoryRepositoryPort categoryRepositoryPort) {
+        return new ExportData(billRepositoryPort, creditCardRepositoryPort, invoiceRepositoryPort, installmentRepositoryPort, categoryRepositoryPort);
     }
 
     @Bean
     public ImportData importData(BillRepositoryPort billRepositoryPort,
                                  CreditCardRepositoryPort creditCardRepositoryPort,
                                  InvoiceRepositoryPort invoiceRepositoryPort,
+                                 CategoryRepositoryPort categoryRepositoryPort,
                                  CreateBill createBill,
                                  CreateCreditCard createCreditCard,
+                                 CreateCategory createCategory,
                                  CreateBillWithCreditCard createBillWithCreditCard,
                                  ProcessPostImport processPostImport) {
-        return new ImportData(billRepositoryPort, creditCardRepositoryPort, invoiceRepositoryPort,
-                createBill, createCreditCard, createBillWithCreditCard, processPostImport);
+        return new ImportData(billRepositoryPort, creditCardRepositoryPort, invoiceRepositoryPort, categoryRepositoryPort,
+                createBill, createCreditCard, createCategory, createBillWithCreditCard, processPostImport);
     }
 
     @Bean

@@ -612,4 +612,147 @@ class BillControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "application/json"));
     }
+
+    // ==================== GET /bills with filters ====================
+
+    @Test
+    @DisplayName("GET /bills - Should filter by minAmount")
+    void shouldFilterByMinAmount() throws Exception {
+        // Given: Bills with different amounts
+        Bill bill1 = TestDataBuilder.createBill(1L, "Bill 1", new BigDecimal("1000.00"), 10);
+        Bill bill3 = TestDataBuilder.createBill(3L, "Bill 3", new BigDecimal("2000.00"), 20);
+
+        org.springframework.data.domain.Page<Bill> page = new org.springframework.data.domain.PageImpl<>(
+                List.of(bill1, bill3),
+                org.springframework.data.domain.PageRequest.of(0, 10),
+                2
+        );
+
+        when(getAllBills.execute(any(org.springframework.data.domain.Pageable.class), 
+                any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(page);
+
+        // When & Then
+        mockMvc.perform(get("/bills")
+                        .param("minAmount", "800.00")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)));
+    }
+
+    @Test
+    @DisplayName("GET /bills - Should filter by category")
+    void shouldFilterByCategory() throws Exception {
+        // Given: Bills with different categories
+        Bill bill1 = TestDataBuilder.createBill(1L, "Bill 1", new BigDecimal("1000.00"), 10);
+        bill1.setCategory("Moradia");
+
+        org.springframework.data.domain.Page<Bill> page = new org.springframework.data.domain.PageImpl<>(
+                List.of(bill1),
+                org.springframework.data.domain.PageRequest.of(0, 10),
+                1
+        );
+
+        when(getAllBills.execute(any(org.springframework.data.domain.Pageable.class), 
+                any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(page);
+
+        // When & Then
+        mockMvc.perform(get("/bills")
+                        .param("category", "Moradia")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("GET /bills - Should filter by numberOfInstallments")
+    void shouldFilterByNumberOfInstallments() throws Exception {
+        // Given: Bills with different number of installments
+        Bill bill1 = TestDataBuilder.createBill(1L, "Bill 1", new BigDecimal("1000.00"), 10);
+
+        org.springframework.data.domain.Page<Bill> page = new org.springframework.data.domain.PageImpl<>(
+                List.of(bill1),
+                org.springframework.data.domain.PageRequest.of(0, 10),
+                1
+        );
+
+        when(getAllBills.execute(any(org.springframework.data.domain.Pageable.class), 
+                any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(page);
+
+        // When & Then
+        mockMvc.perform(get("/bills")
+                        .param("numberOfInstallments", "10")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("POST /bills - Should create bill with category")
+    void shouldCreateBillWithCategory() throws Exception {
+        // Given: Valid bill request with category
+        BillRequestDTO request = new BillRequestDTO(
+                "Internet Bill",
+                LocalDateTime.of(2025, 1, 15, 10, 0),
+                new BigDecimal("100.00"),
+                1,
+                "Monthly subscription",
+                null
+        );
+        request.setCategory("Moradia");
+
+        Bill createdBill = TestDataBuilder.createBill(1L, "Internet Bill", new BigDecimal("100.00"), 1);
+        createdBill.setCategory("Moradia");
+        createdBill.setInstallmentAmount(new BigDecimal("100.00"));
+
+        when(createBill.addBill(any(Bill.class))).thenReturn(createdBill);
+
+        // When & Then
+        mockMvc.perform(post("/bills")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.category").value("Moradia"));
+    }
+
+    @Test
+    @DisplayName("GET /bills/categories - Should return list of categories")
+    void shouldReturnCategories() throws Exception {
+        // Given: Bills with different categories
+        Bill bill1 = TestDataBuilder.createBill(1L, "Bill 1", new BigDecimal("1000.00"), 10);
+        bill1.setCategory("Moradia");
+        Bill bill2 = TestDataBuilder.createBill(2L, "Bill 2", new BigDecimal("500.00"), 5);
+        bill2.setCategory("Saúde");
+        Bill bill3 = TestDataBuilder.createBill(3L, "Bill 3", new BigDecimal("300.00"), 3);
+        bill3.setCategory("Moradia"); // Duplicate category
+
+        when(getAllBills.execute()).thenReturn(List.of(bill1, bill2, bill3));
+
+        // When & Then
+        mockMvc.perform(get("/bills/categories")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0]").value("Moradia"))
+                .andExpect(jsonPath("$[1]").value("Saúde"));
+    }
+
+    @Test
+    @DisplayName("GET /bills/categories - Should return empty list when no categories exist")
+    void shouldReturnEmptyCategoriesList() throws Exception {
+        // Given: Bills without categories
+        Bill bill1 = TestDataBuilder.createBill(1L, "Bill 1", new BigDecimal("1000.00"), 10);
+        bill1.setCategory(null);
+
+        when(getAllBills.execute()).thenReturn(List.of(bill1));
+
+        // When & Then
+        mockMvc.perform(get("/bills/categories")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
 }

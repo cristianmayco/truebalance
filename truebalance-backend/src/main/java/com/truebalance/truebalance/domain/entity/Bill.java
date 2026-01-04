@@ -14,6 +14,7 @@ public class Bill {
     private BigDecimal installmentAmount;
     private String description;
     private Boolean isRecurring;
+    private String category;  // Categoria da conta (ex: "Moradia", "Saúde", "Educação", etc.)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -97,5 +98,13 @@ public class Bill {
 
     public void setIsRecurring(Boolean isRecurring) {
         this.isRecurring = isRecurring != null ? isRecurring : false;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 }

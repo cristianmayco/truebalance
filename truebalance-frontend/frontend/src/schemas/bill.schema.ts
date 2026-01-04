@@ -35,6 +35,18 @@ export const billSchema = z.object({
     .max(500, 'Descrição deve ter no máximo 500 caracteres')
     .optional(),
 
+  category: z
+    .string()
+    .max(100, 'Categoria deve ter no máximo 100 caracteres')
+    .optional(),
+
+  categoryId: z
+    .number()
+    .int('ID da categoria deve ser um número inteiro')
+    .positive('ID da categoria inválido')
+    .optional()
+    .nullable(),
+
   creditCardId: z
     .number()
     .int('ID do cartão deve ser um número inteiro')

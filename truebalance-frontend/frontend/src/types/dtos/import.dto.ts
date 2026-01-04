@@ -7,6 +7,7 @@ export type DuplicateStrategy = 'SKIP' | 'CREATE_DUPLICATE'
 export interface BillImportItemDTO {
   name: string
   description?: string
+  category?: string
   executionDate: string // ISO
   totalAmount: number
   numberOfInstallments: number

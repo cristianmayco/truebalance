@@ -4,10 +4,12 @@ import com.truebalance.truebalance.domain.entity.Bill;
 import com.truebalance.truebalance.domain.port.BillRepositoryPort;
 import com.truebalance.truebalance.infra.db.entity.BillEntity;
 import com.truebalance.truebalance.infra.db.repository.BillRepository;
+import com.truebalance.truebalance.infra.db.specification.BillSpecification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -89,6 +91,45 @@ public class BillRepositoryAdapter implements BillRepositoryPort {
     }
 
     @Override
+    public Page<Bill> findAll(Pageable pageable, String name, LocalDateTime startDate, LocalDateTime endDate,
+                              java.math.BigDecimal minAmount, java.math.BigDecimal maxAmount,
+                              Integer numberOfInstallments, String category, Long creditCardId, Boolean hasCreditCard) {
+        logger.debug("Buscando contas com filtros avançados: page={}, size={}, name={}, startDate={}, endDate={}, " +
+                    "minAmount={}, maxAmount={}, numberOfInstallments={}, category={}, creditCardId={}, hasCreditCard={}",
+            pageable.getPageNumber(), pageable.getPageSize(), name, startDate, endDate,
+            minAmount, maxAmount, numberOfInstallments, category, creditCardId, hasCreditCard);
+
+        Specification<BillEntity> spec = Specification.where(BillSpecification.hasName(name))
+                .and(BillSpecification.hasStartDate(startDate))
+                .and(BillSpecification.hasEndDate(endDate))
+                .and(BillSpecification.hasMinAmount(minAmount))
+                .and(BillSpecification.hasMaxAmount(maxAmount))
+                .and(BillSpecification.hasNumberOfInstallments(numberOfInstallments))
+                .and(BillSpecification.hasCategory(category))
+                .and(BillSpecification.hasCreditCard(creditCardId))
+                .and(BillSpecification.hasCreditCardFilter(hasCreditCard));
+
+        Page<BillEntity> entities = repository.findAll(spec, pageable);
+
+        logger.debug("Encontradas {} entidades com filtros avançados", entities.getNumberOfElements());
+        return entities.map(this::toDomain);
+    }
+
+    @Override
+    public List<Bill> findAllByCategoryAndDateRange(String categoryName, LocalDateTime startDate, LocalDateTime endDate) {
+        logger.debug("Buscando contas por categoria e intervalo de datas: category={}, startDate={}, endDate={}",
+                categoryName, startDate, endDate);
+
+        Specification<BillEntity> spec = Specification.where(BillSpecification.hasCategory(categoryName))
+                .and(BillSpecification.hasStartDate(startDate))
+                .and(BillSpecification.hasEndDate(endDate));
+
+        List<BillEntity> entities = repository.findAll(spec);
+        logger.debug("Encontradas {} contas para a categoria no período", entities.size());
+        return entities.stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
+    @Override
     public void deleteById(Long id) {
         repository.deleteById(id);
     }
@@ -103,6 +144,7 @@ public class BillRepositoryAdapter implements BillRepositoryPort {
         entity.setInstallmentAmount(bill.getInstallmentAmount());
         entity.setDescription(bill.getDescription());
         entity.setIsRecurring(bill.getIsRecurring());
+        entity.setCategory(bill.getCategory());
         // createdAt e updatedAt são gerenciados automaticamente pelo JPA (@PrePersist e @PreUpdate)
         return entity;
     }
@@ -117,6 +159,7 @@ public class BillRepositoryAdapter implements BillRepositoryPort {
         bill.setInstallmentAmount(entity.getInstallmentAmount());
         bill.setDescription(entity.getDescription());
         bill.setIsRecurring(entity.getIsRecurring());
+        bill.setCategory(entity.getCategory());
         bill.setCreatedAt(entity.getCreatedAt());
         bill.setUpdatedAt(entity.getUpdatedAt());
         return bill;

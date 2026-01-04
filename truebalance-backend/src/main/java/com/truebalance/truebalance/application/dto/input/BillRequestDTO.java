@@ -31,6 +31,9 @@ public class BillRequestDTO {
 
     private Boolean isRecurring;  // Optional: if true, bill is recurring (e.g., monthly internet bill)
 
+    private String category;  // Optional: category name (deprecated, use categoryId instead)
+    private Long categoryId;  // Optional: ID of the category
+
     private Long creditCardId;  // Optional: if provided, bill will be linked to credit card
 
     // Default constructor required for Jackson deserialization
@@ -113,6 +116,22 @@ public class BillRequestDTO {
         this.isRecurring = isRecurring != null ? isRecurring : false;
     }
 
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
+    }
+
     public Bill toBill(){
         Bill bill = new Bill();
         bill.setName(this.getName());
@@ -121,6 +140,8 @@ public class BillRequestDTO {
         bill.setNumberOfInstallments(this.getNumberOfInstallments());
         bill.setDescription(this.getDescription());
         bill.setIsRecurring(this.getIsRecurring());
+        // category será preenchido pelo controller se categoryId for fornecido
+        bill.setCategory(this.getCategory());
 
         return bill;
     }

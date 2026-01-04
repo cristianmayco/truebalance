@@ -7,6 +7,9 @@ import { RootLayout } from '@/layouts/RootLayout'
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard').then(m => ({ default: m.Dashboard })))
 const BillsList = lazy(() => import('@/pages/bills/BillsList').then(m => ({ default: m.BillsList })))
 const BillForm = lazy(() => import('@/pages/bills/BillForm').then(m => ({ default: m.BillForm })))
+const CategoriesList = lazy(() => import('@/pages/categories/CategoriesList').then(m => ({ default: m.CategoriesList })))
+const CategoryForm = lazy(() => import('@/pages/categories/CategoryForm').then(m => ({ default: m.CategoryForm })))
+const CategoryDashboard = lazy(() => import('@/pages/categories/CategoryDashboard').then(m => ({ default: m.CategoryDashboard })))
 const CreditCardsList = lazy(() => import('@/pages/creditCards/CreditCardsList').then(m => ({ default: m.CreditCardsList })))
 const CreditCardForm = lazy(() => import('@/pages/creditCards/CreditCardForm').then(m => ({ default: m.CreditCardForm })))
 const InvoicesList = lazy(() => import('@/pages/invoices/InvoicesList').then(m => ({ default: m.InvoicesList })))
@@ -66,6 +69,40 @@ export const router = createBrowserRouter([
         element: (
           <LazyRoute>
             <BillForm />
+          </LazyRoute>
+        ),
+      },
+
+      // Rotas de Categorias
+      {
+        path: 'categories',
+        element: (
+          <LazyRoute>
+            <CategoriesList />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'categories/new',
+        element: (
+          <LazyRoute>
+            <CategoryForm />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'categories/:id/edit',
+        element: (
+          <LazyRoute>
+            <CategoryForm />
+          </LazyRoute>
+        ),
+      },
+      {
+        path: 'categories/:id/dashboard',
+        element: (
+          <LazyRoute>
+            <CategoryDashboard />
           </LazyRoute>
         ),
       },

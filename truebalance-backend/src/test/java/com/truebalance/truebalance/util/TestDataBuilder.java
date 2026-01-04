@@ -27,6 +27,7 @@ public class TestDataBuilder {
         bill.setInstallmentAmount(new BigDecimal("100.00"));
         bill.setDescription("Test bill description");
         bill.setIsRecurring(false);
+        bill.setCategory("Teste");
         bill.setCreatedAt(LocalDateTime.of(2025, 1, 15, 10, 0));
         bill.setUpdatedAt(LocalDateTime.of(2025, 1, 15, 10, 0));
         return bill;

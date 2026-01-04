@@ -20,5 +20,14 @@ public interface BillRepositoryPort {
 
     Page<Bill> findAll(Pageable pageable, String name, LocalDateTime startDate, LocalDateTime endDate);
 
+    Page<Bill> findAll(Pageable pageable, String name, LocalDateTime startDate, LocalDateTime endDate,
+                       java.math.BigDecimal minAmount, java.math.BigDecimal maxAmount,
+                       Integer numberOfInstallments, String category, Long creditCardId, Boolean hasCreditCard);
+
+    /**
+     * Busca todas as contas de uma categoria específica dentro de um intervalo de datas
+     */
+    List<Bill> findAllByCategoryAndDateRange(String categoryName, LocalDateTime startDate, LocalDateTime endDate);
+
     void deleteById(Long id);
 }

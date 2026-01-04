@@ -33,6 +33,9 @@ public class BillEntity {
     @Column(name = "is_recurring", nullable = false)
     private Boolean isRecurring = false;
 
+    @Column(name = "category")
+    private String category;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -151,6 +154,14 @@ public class BillEntity {
 
     public void setIsRecurring(Boolean isRecurring) {
         this.isRecurring = isRecurring != null ? isRecurring : false;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
 }

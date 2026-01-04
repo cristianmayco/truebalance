@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/Select'
 import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { useCreditCards } from '@/hooks/useCreditCards'
+import { useCategories } from '@/hooks/useCategories'
 import { formatCurrency } from '@/utils/currency'
 import { formatDateInput } from '@/utils/date'
 
@@ -25,6 +26,7 @@ export function BillForm() {
   const { showToast } = useToast()
   const { data: bill, isLoading: isLoadingBill } = useBill(billId)
   const { data: creditCards = [], isLoading: isLoadingCreditCards } = useCreditCards()
+  const { data: categories = [], isLoading: isLoadingCategories } = useCategories()
   const { mutate: createBill, isPending: isCreating } = useCreateBill()
   const { mutate: updateBill, isPending: isUpdating } = useUpdateBill()
 
@@ -45,6 +47,8 @@ export function BillForm() {
       totalAmount: 0,
       numberOfInstallments: 1,
       description: '',
+      category: '',
+      categoryId: null,
       creditCardId: null,
       isRecurring: false,
     },
@@ -58,16 +62,24 @@ export function BillForm() {
 
   // Load bill data when editing
   useEffect(() => {
-    if (bill && isEditMode) {
+    if (bill && isEditMode && categories.length > 0) {
       setValue('name', bill.name)
       setValue('date', formatDateInput(bill.date || bill.executionDate || new Date()))
       setValue('totalAmount', bill.totalAmount)
       setValue('numberOfInstallments', bill.numberOfInstallments)
       setValue('description', bill.description || '')
+      setValue('category', bill.category || '')
+      // Se a categoria existe, tentar encontrar o ID correspondente
+      if (bill.category) {
+        const foundCategory = categories.find(cat => cat.name === bill.category)
+        if (foundCategory) {
+          setValue('categoryId', foundCategory.id)
+        }
+      }
       setValue('isRecurring', bill.isRecurring || false)
       setValue('creditCardId', bill.creditCardId || null)
     }
-  }, [bill, isEditMode, setValue])
+  }, [bill, isEditMode, categories, setValue])
 
   // Watch form values
   const totalAmount = watch('totalAmount')
@@ -98,12 +110,23 @@ export function BillForm() {
       ? data.totalAmount  // Usuário informou o valor total
       : data.totalAmount * data.numberOfInstallments  // Usuário informou o valor da parcela
 
+    // Se categoryId foi selecionado, usar o nome da categoria correspondente
+    let categoryName = data.category
+    if (data.categoryId && categories.length > 0) {
+      const selectedCategory = categories.find(cat => cat.id === data.categoryId)
+      if (selectedCategory) {
+        categoryName = selectedCategory.name
+      }
+    }
+
     const payload = {
       name: data.name,
       executionDate: executionDate,
       totalAmount: finalTotalAmount,
       numberOfInstallments: data.numberOfInstallments,
       description: data.description || undefined,
+      category: categoryName || undefined,
+      categoryId: data.categoryId || undefined,
       isRecurring: data.isRecurring || false,
       creditCardId: data.creditCardId || undefined,
     }
@@ -254,6 +277,41 @@ export function BillForm() {
             error={errors.description?.message}
             {...register('description')}
           />
+
+          {/* Category Selection */}
+          {!isLoadingCategories && (
+            <div className="space-y-2">
+              <Select
+                label="Categoria (opcional)"
+                error={errors.categoryId?.message}
+                options={[
+                  { value: '', label: 'Sem categoria' },
+                  ...categories.map((cat) => ({
+                    value: cat.id,
+                    label: cat.name,
+                  })),
+                ]}
+                {...register('categoryId', {
+                  setValueAs: (value) => {
+                    if (value === '' || value === null || value === undefined) {
+                      return null
+                    }
+                    return parseInt(value as string, 10)
+                  },
+                })}
+              />
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                Não encontrou a categoria?{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/categories/new')}
+                  className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 underline"
+                >
+                  Criar nova categoria
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Recurring Bill Checkbox */}
           <div className="flex items-start gap-3">

@@ -134,7 +134,7 @@ O sistema suporta importação e exportação de dados em formato Excel (XLS/XLS
 
 **Contas (Bills):**
 - Cabeçalhos obrigatórios: `Nome`, `Data`, `Valor Total`, `Número de Parcelas`
-- Opcional: `Descrição`, `ID Cartão`
+- Opcional: `Descrição`, `Categoria`, `ID Cartão`
 
 **Cartões de Crédito:**
 - Cabeçalhos obrigatórios: `Nome`, `Limite de Crédito`, `Dia de Fechamento`, `Dia de Vencimento`

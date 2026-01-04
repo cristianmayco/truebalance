@@ -10,15 +10,30 @@ export const billsService = {
    * Get all bills with pagination and filters
    */
   async getAll(params?: BillFiltersDTO): Promise<PaginatedResponse<BillResponseDTO>> {
+    const queryParams: Record<string, any> = {
+      page: params?.page ?? 0,
+      size: params?.size ?? 10,
+      sort: params?.sort ?? 'executionDate,desc',
+      name: params?.name,
+      startDate: params?.startDate,
+      endDate: params?.endDate,
+      minAmount: params?.minAmount,
+      maxAmount: params?.maxAmount,
+      numberOfInstallments: params?.numberOfInstallments,
+      category: params?.category,
+      creditCardId: params?.creditCardId,
+      hasCreditCard: params?.hasCreditCard,
+    }
+    
+    // Remove undefined values
+    Object.keys(queryParams).forEach(key => {
+      if (queryParams[key] === undefined) {
+        delete queryParams[key]
+      }
+    })
+
     const response = await apiClient.get<PaginatedResponse<BillResponseDTO>>(BILLS_ENDPOINT, {
-      params: {
-        page: params?.page ?? 0,
-        size: params?.size ?? 10,
-        sort: params?.sort ?? 'executionDate,desc',
-        name: params?.name,
-        startDate: params?.startDate,
-        endDate: params?.endDate,
-      },
+      params: queryParams,
     })
     return response.data
   },
@@ -64,4 +79,5 @@ export const billsService = {
     )
     return response.data
   },
+
 }

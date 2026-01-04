@@ -14,6 +14,8 @@ import com.truebalance.truebalance.domain.usecase.GetBillById;
 import com.truebalance.truebalance.domain.usecase.GetBillInstallments;
 import com.truebalance.truebalance.domain.usecase.UpdateBill;
 import com.truebalance.truebalance.domain.usecase.UpdateBillWithCreditCard;
+import com.truebalance.truebalance.domain.usecase.GetCategoryById;
+import com.truebalance.truebalance.domain.exception.CategoryNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -52,11 +54,12 @@ public class BillController {
     private final GetBillById getBillById;
     private final DeleteBill deleteBill;
     private final GetBillInstallments getBillInstallments;
+    private final GetCategoryById getCategoryById;
 
     public BillController(CreateBill createBill, CreateBillWithCreditCard createBillWithCreditCard,
                           UpdateBill updateBill, UpdateBillWithCreditCard updateBillWithCreditCard,
                           GetAllBills getAllBills, GetBillById getBillById, DeleteBill deleteBill,
-                          GetBillInstallments getBillInstallments) {
+                          GetBillInstallments getBillInstallments, GetCategoryById getCategoryById) {
         this.createBill = createBill;
         this.createBillWithCreditCard = createBillWithCreditCard;
         this.updateBill = updateBill;
@@ -65,6 +68,7 @@ public class BillController {
         this.getBillById = getBillById;
         this.deleteBill = deleteBill;
         this.getBillInstallments = getBillInstallments;
+        this.getCategoryById = getCategoryById;
     }
 
     @Operation(summary = "Listar todas as contas", description = "Retorna uma lista paginada com todas as contas/despesas cadastradas no sistema.")
@@ -79,10 +83,17 @@ public class BillController {
             @RequestParam(required = false) String sort,
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String startDate,
-            @RequestParam(required = false) String endDate) {
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) java.math.BigDecimal minAmount,
+            @RequestParam(required = false) java.math.BigDecimal maxAmount,
+            @RequestParam(required = false) Integer numberOfInstallments,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Long creditCardId,
+            @RequestParam(required = false) Boolean hasCreditCard) {
         
-        logger.info("GET /bills - page={}, size={}, sort={}, name={}, startDate={}, endDate={}", 
-            page, size, sort, name, startDate, endDate);
+        logger.info("GET /bills - page={}, size={}, sort={}, name={}, startDate={}, endDate={}, " +
+                   "minAmount={}, maxAmount={}, numberOfInstallments={}, category={}, creditCardId={}, hasCreditCard={}", 
+            page, size, sort, name, startDate, endDate, minAmount, maxAmount, numberOfInstallments, category, creditCardId, hasCreditCard);
 
         // Parse sort parameter (format: "field,direction" e.g., "executionDate,desc")
         Sort sortObj = Sort.unsorted();
@@ -119,8 +130,13 @@ public class BillController {
         }
 
         Page<Bill> billsPage;
-        if (name != null || startDateTime != null || endDateTime != null) {
-            billsPage = getAllBills.execute(pageable, name, startDateTime, endDateTime);
+        // Check if any advanced filters are provided
+        boolean hasAdvancedFilters = minAmount != null || maxAmount != null || numberOfInstallments != null ||
+                                     category != null || creditCardId != null || hasCreditCard != null;
+        
+        if (hasAdvancedFilters || name != null || startDateTime != null || endDateTime != null) {
+            billsPage = getAllBills.execute(pageable, name, startDateTime, endDateTime,
+                                            minAmount, maxAmount, numberOfInstallments, category, creditCardId, hasCreditCard);
         } else {
             billsPage = getAllBills.execute(pageable);
         }
@@ -140,40 +156,51 @@ public class BillController {
             billsPage.getTotalPages()
         );
 
-        logger.info("Retornando {} contas (página {} de {})", 
+        logger.info("Retornando {} contas (p?gina {} de {})", 
             content.size(), billsPage.getNumber() + 1, billsPage.getTotalPages());
 
         return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Criar uma nova conta",
-               description = "Cria uma nova conta/despesa no sistema. O valor das parcelas é calculado automaticamente. " +
-                             "Se creditCardId for fornecido, a conta será vinculada ao cartão de crédito e as parcelas " +
-                             "serão automaticamente distribuídas nas faturas correspondentes baseadas no ciclo de faturamento.")
+               description = "Cria uma nova conta/despesa no sistema. O valor das parcelas ? calculado automaticamente. " +
+                             "Se creditCardId for fornecido, a conta ser? vinculada ao cart?o de cr?dito e as parcelas " +
+                             "ser?o automaticamente distribu?das nas faturas correspondentes baseadas no ciclo de faturamento.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Conta criada com sucesso",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = BillResponseDTO.class))),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos ou limite de crédito insuficiente", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Cartão de crédito não encontrado", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Dados inv?lidos ou limite de cr?dito insuficiente", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Cart?o de cr?dito n?o encontrado", content = @Content)
     })
     @PostMapping
     public ResponseEntity<BillResponseDTO> addBill(@Valid @RequestBody BillRequestDTO billRequestDTO) {
-        logger.info("POST /bills - Criando nova conta: nome={}, valorTotal={}, parcelas={}, dataExecucao={}, creditCardId={}", 
+        logger.info("POST /bills - Criando nova conta: nome={}, valorTotal={}, parcelas={}, dataExecucao={}, creditCardId={}, categoryId={}", 
             billRequestDTO.getName(), billRequestDTO.getTotalAmount(), 
             billRequestDTO.getNumberOfInstallments(), billRequestDTO.getExecutionDate(),
-            billRequestDTO.getCreditCardId());
+            billRequestDTO.getCreditCardId(), billRequestDTO.getCategoryId());
         
         Bill bill = billRequestDTO.toBill();
+        
+        // Se categoryId foi fornecido, buscar o nome da categoria
+        if (billRequestDTO.getCategoryId() != null) {
+            try {
+                com.truebalance.truebalance.domain.entity.Category category = getCategoryById.execute(billRequestDTO.getCategoryId());
+                bill.setCategory(category.getName());
+            } catch (CategoryNotFoundException e) {
+                logger.warn("Categoria ID={} n?o encontrada, usando categoria como string se fornecida", billRequestDTO.getCategoryId());
+            }
+        }
+        
         Bill createdBill;
 
-        // Decisão: com ou sem cartão?
+        // Decis?o: com ou sem cart?o?
         if (billRequestDTO.getCreditCardId() != null) {
-            logger.info("Criando conta vinculada ao cartão de crédito ID={}", billRequestDTO.getCreditCardId());
-            // Fluxo integrado com cartão de crédito
+            logger.info("Criando conta vinculada ao cart?o de cr?dito ID={}", billRequestDTO.getCreditCardId());
+            // Fluxo integrado com cart?o de cr?dito
             createdBill = createBillWithCreditCard.execute(bill, billRequestDTO.getCreditCardId());
         } else {
-            logger.info("Criando conta standalone (sem cartão de crédito)");
-            // Fluxo standalone (comportamento atual - sem integração com cartão)
+            logger.info("Criando conta standalone (sem cart?o de cr?dito)");
+            // Fluxo standalone (comportamento atual - sem integra??o com cart?o)
             createdBill = createBill.addBill(bill);
         }
 
@@ -182,45 +209,56 @@ public class BillController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @Operation(summary = "Atualizar uma conta existente", description = "Atualiza os dados de uma conta/despesa existente. O valor das parcelas é recalculado automaticamente.")
+    @Operation(summary = "Atualizar uma conta existente", description = "Atualiza os dados de uma conta/despesa existente. O valor das parcelas ? recalculado automaticamente.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Conta atualizada com sucesso",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = BillResponseDTO.class))),
-            @ApiResponse(responseCode = "404", description = "Conta não encontrada", content = @Content),
-            @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content)
+            @ApiResponse(responseCode = "404", description = "Conta n?o encontrada", content = @Content),
+            @ApiResponse(responseCode = "400", description = "Dados inv?lidos", content = @Content)
     })
     @PutMapping("/{id}")
     public ResponseEntity<BillResponseDTO> updateBill(
             @Parameter(description = "ID da conta a ser atualizada", required = true)
             @PathVariable Long id,
             @Valid @RequestBody BillRequestDTO billRequestDTO) {
-        logger.info("PUT /bills/{} - Atualizando conta: nome={}, valorTotal={}, parcelas={}, dataExecucao={}, creditCardId={}", 
+        logger.info("PUT /bills/{} - Atualizando conta: nome={}, valorTotal={}, parcelas={}, dataExecucao={}, creditCardId={}, categoryId={}", 
             id, billRequestDTO.getName(), billRequestDTO.getTotalAmount(), 
             billRequestDTO.getNumberOfInstallments(), billRequestDTO.getExecutionDate(),
-            billRequestDTO.getCreditCardId());
+            billRequestDTO.getCreditCardId(), billRequestDTO.getCategoryId());
         
         Bill bill = billRequestDTO.toBill();
+        
+        // Se categoryId foi fornecido, buscar o nome da categoria
+        if (billRequestDTO.getCategoryId() != null) {
+            try {
+                com.truebalance.truebalance.domain.entity.Category category = getCategoryById.execute(billRequestDTO.getCategoryId());
+                bill.setCategory(category.getName());
+            } catch (CategoryNotFoundException e) {
+                logger.warn("Categoria ID={} não encontrada, usando categoria como string se fornecida", billRequestDTO.getCategoryId());
+            }
+        }
+        
         Bill updatedBill;
 
         // Check if bill was previously linked to a credit card
         List<Installment> existingInstallments = getBillInstallments.execute(id);
         boolean wasLinkedToCard = existingInstallments != null && !existingInstallments.isEmpty();
         
-        // Decisão: com ou sem cartão?
+        // Decis?o: com ou sem cart?o?
         if (billRequestDTO.getCreditCardId() != null) {
-            logger.info("Atualizando conta vinculada ao cartão de crédito ID={}", billRequestDTO.getCreditCardId());
-            // Fluxo integrado com cartão de crédito
+            logger.info("Atualizando conta vinculada ao cart?o de cr?dito ID={}", billRequestDTO.getCreditCardId());
+            // Fluxo integrado com cart?o de cr?dito
             updatedBill = updateBillWithCreditCard.execute(id, bill, billRequestDTO.getCreditCardId());
         } else {
-            logger.info("Atualizando conta standalone (sem cartão de crédito)");
-            // Se a conta estava vinculada a um cartão, precisamos remover os installments
+            logger.info("Atualizando conta standalone (sem cart?o de cr?dito)");
+            // Se a conta estava vinculada a um cart?o, precisamos remover os installments
             if (wasLinkedToCard) {
-                logger.info("Removendo installments da conta que estava vinculada a cartão");
+                logger.info("Removendo installments da conta que estava vinculada a cart?o");
                 // Remove installments and update invoices
                 updateBillWithCreditCard.removeInstallmentsAndUpdateInvoices(id, existingInstallments);
             }
             
-            // Fluxo standalone (comportamento atual - sem integração com cartão)
+            // Fluxo standalone (comportamento atual - sem integra??o com cart?o)
             Optional<Bill> result = updateBill.updateBill(id, bill);
             if (result.isEmpty()) {
                 return ResponseEntity.notFound().build();
@@ -249,11 +287,11 @@ public class BillController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Buscar conta por ID", description = "Retorna os detalhes de uma conta específica.")
+    @Operation(summary = "Buscar conta por ID", description = "Retorna os detalhes de uma conta espec?fica.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Conta encontrada com sucesso",
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = BillResponseDTO.class))),
-            @ApiResponse(responseCode = "404", description = "Conta não encontrada", content = @Content)
+            @ApiResponse(responseCode = "404", description = "Conta n?o encontrada", content = @Content)
     })
     @GetMapping("/{id}")
     public ResponseEntity<BillResponseDTO> getBillById(
@@ -285,10 +323,10 @@ public class BillController {
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "Deletar conta", description = "Remove uma conta do sistema. Atenção: esta ação não pode ser desfeita.")
+    @Operation(summary = "Deletar conta", description = "Remove uma conta do sistema. Aten??o: esta a??o n?o pode ser desfeita.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Conta deletada com sucesso", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Conta não encontrada", content = @Content)
+            @ApiResponse(responseCode = "404", description = "Conta n?o encontrada", content = @Content)
     })
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBill(
@@ -302,12 +340,12 @@ public class BillController {
     }
 
     @Operation(summary = "Listar parcelas da conta",
-               description = "Retorna todas as parcelas de uma conta específica, ordenadas por número de parcela.")
+               description = "Retorna todas as parcelas de uma conta espec?fica, ordenadas por n?mero de parcela.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Parcelas retornadas com sucesso",
                     content = @Content(mediaType = "application/json",
                                       schema = @Schema(implementation = InstallmentResponseDTO.class))),
-            @ApiResponse(responseCode = "404", description = "Conta não encontrada", content = @Content)
+            @ApiResponse(responseCode = "404", description = "Conta n?o encontrada", content = @Content)
     })
     @GetMapping("/{id}/installments")
     public ResponseEntity<List<InstallmentResponseDTO>> getBillInstallments(

@@ -5,6 +5,8 @@ export interface BillRequestDTO {
   numberOfInstallments: number
   description?: string
   isRecurring?: boolean  // Se true, a conta é recorrente (ex: conta de internet mensal)
+  category?: string  // Nome da categoria (para compatibilidade)
+  categoryId?: number  // ID da categoria (preferencial)
   creditCardId?: number  // Opcional, futuro
 }
 
@@ -21,6 +23,7 @@ export interface BillResponseDTO {
   installmentAmount: number
   description: string | null
   isRecurring?: boolean  // Se true, a conta é recorrente (ex: conta de internet mensal)
+  category?: string | null  // Categoria da conta
   creditCardId?: number | null  // ID do cartão de crédito associado (se houver)
   isPaid?: boolean
   installments?: InstallmentResponseDTO[]
@@ -35,4 +38,10 @@ export interface BillFiltersDTO {
   name?: string
   startDate?: string
   endDate?: string
+  minAmount?: number
+  maxAmount?: number
+  numberOfInstallments?: number
+  category?: string
+  creditCardId?: number
+  hasCreditCard?: boolean  // true = com cartão, false = sem cartão, undefined = todos
 }
