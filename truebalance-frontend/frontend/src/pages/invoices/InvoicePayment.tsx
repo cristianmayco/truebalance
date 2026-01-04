@@ -1,11 +1,13 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { useInvoice, useAddPartialPayment, useMarkInvoiceAsPaid } from '@/hooks/useInvoices';
+import { useCreditCard } from '@/hooks/useCreditCards';
 import PaymentForm from '@/components/invoices/PaymentForm';
 import Card from '@/components/ui/Card';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import Button from '@/components/ui/Button';
 import { useToast } from '@/contexts/ToastContext';
+import { formatCurrency } from '@/utils/currency';
 
 export default function InvoicePayment() {
   const { id } = useParams<{ id: string }>();
@@ -13,10 +15,11 @@ export default function InvoicePayment() {
   const { showToast } = useToast();
 
   const { data: invoice, isLoading, error } = useInvoice(id ? parseInt(id) : undefined);
+  const { data: creditCard } = useCreditCard(invoice?.creditCardId);
   const addPartialPaymentMutation = useAddPartialPayment();
   const markAsPaidMutation = useMarkInvoiceAsPaid();
 
-  const handlePayment = async (data: { amount?: number; description?: string; paymentDate: Date }) => {
+  const handlePayment = async (data: { amount?: number; description?: string }) => {
     if (!invoice) return;
 
     try {
@@ -29,7 +32,7 @@ export default function InvoicePayment() {
         showToast('success', 'Fatura paga com sucesso!', 'A fatura foi marcada como paga.');
       } else {
         // Add partial payment
-        await addPartialPaymentMutation.mutateAsync({
+        const result = await addPartialPaymentMutation.mutateAsync({
           invoiceId: invoice.id,
           payment: {
             amount: data.amount!,
@@ -37,13 +40,18 @@ export default function InvoicePayment() {
           },
         });
 
-        showToast('success', 'Pagamento parcial registrado!', `Valor de R$ ${data.amount!.toFixed(2)} foi adicionado aos pagamentos.`);
+        const message = result.creditCardAvailableLimit 
+          ? `Valor de ${formatCurrency(data.amount!)} foi adicionado. Limite disponível: ${formatCurrency(result.creditCardAvailableLimit)}`
+          : `Valor de ${formatCurrency(data.amount!)} foi adicionado aos pagamentos.`
+        
+        showToast('success', 'Pagamento parcial registrado!', message);
       }
 
       // Navigate back to invoice details
       navigate(`/invoices/${invoice.id}`);
-    } catch (err) {
-      showToast('error', 'Erro ao processar pagamento', 'Não foi possível processar o pagamento. Tente novamente.');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Não foi possível processar o pagamento. Tente novamente.'
+      showToast('error', 'Erro ao processar pagamento', errorMessage);
       console.error('Payment error:', err);
     }
   };
@@ -75,6 +83,46 @@ export default function InvoicePayment() {
     );
   }
 
+  // Check if credit card allows partial payments
+  if (creditCard && !creditCard.allowsPartialPayment && !invoice.closed) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <Card className="p-8 text-center">
+          <XCircle className="w-16 h-16 mx-auto text-orange-500 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Pagamento Parcial Não Permitido
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Este cartão de crédito não permite pagamentos parciais. Você só pode marcar a fatura como paga após ela ser fechada.
+          </p>
+          <Button onClick={() => navigate(`/invoices/${invoice.id}`)} variant="primary">
+            Voltar para Detalhes da Fatura
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Check if invoice is closed (can't add partial payments to closed invoices)
+  if (invoice.closed && !invoice.paid) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <Card className="p-8 text-center">
+          <AlertCircle className="w-16 h-16 mx-auto text-orange-500 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Fatura Fechada
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Esta fatura já está fechada. Não é possível adicionar pagamentos parciais em faturas fechadas.
+          </p>
+          <Button onClick={() => navigate(`/invoices/${invoice.id}`)} variant="primary">
+            Voltar para Detalhes da Fatura
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   // Calculate remaining amount
   const paidAmount = invoice.partialPayments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
   const remainingAmount = invoice.totalAmount - paidAmount;
@@ -98,13 +146,6 @@ export default function InvoicePayment() {
       </div>
     );
   }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
 
   const formatMonth = (dateString: string | Date) => {
     let date: Date;

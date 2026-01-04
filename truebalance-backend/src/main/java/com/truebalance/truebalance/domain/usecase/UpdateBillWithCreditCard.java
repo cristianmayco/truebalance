@@ -7,6 +7,8 @@ import com.truebalance.truebalance.domain.port.CreditCardRepositoryPort;
 import com.truebalance.truebalance.domain.port.InstallmentRepositoryPort;
 import com.truebalance.truebalance.domain.port.InvoiceRepositoryPort;
 import com.truebalance.truebalance.domain.service.InstallmentDateCalculator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -40,6 +42,8 @@ import java.util.Map;
  * If any step fails, ALL changes are rolled back.
  */
 public class UpdateBillWithCreditCard {
+
+    private static final Logger logger = LoggerFactory.getLogger(UpdateBillWithCreditCard.class);
 
     private final UpdateBill updateBill;
     private final CreditCardRepositoryPort creditCardRepository;
@@ -101,10 +105,15 @@ public class UpdateBillWithCreditCard {
             }
             
             // Update old invoices by subtracting old installment amounts
+            // Only update if invoice doesn't use absolute value (BR-I-018)
             for (Map.Entry<Long, BigDecimal> entry : invoiceAmountsToSubtract.entrySet()) {
                 invoiceRepository.findById(entry.getKey()).ifPresent(invoice -> {
-                    invoice.setTotalAmount(invoice.getTotalAmount().subtract(entry.getValue()));
-                    invoiceRepository.save(invoice);
+                    if (!invoice.isUseAbsoluteValue()) {
+                        invoice.setTotalAmount(invoice.getTotalAmount().subtract(entry.getValue()));
+                        invoiceRepository.save(invoice);
+                    } else {
+                        logger.debug("Invoice ID={} uses absolute value, skipping totalAmount update", invoice.getId());
+                    }
                 });
             }
             
@@ -147,9 +156,14 @@ public class UpdateBillWithCreditCard {
             );
 
             // 7c. Update invoice total amount (IN MEMORY)
-            invoice.setTotalAmount(
-                    invoice.getTotalAmount().add(updatedBill.getInstallmentAmount())
-            );
+            // Only update if invoice doesn't use absolute value (BR-I-018)
+            if (!invoice.isUseAbsoluteValue()) {
+                invoice.setTotalAmount(
+                        invoice.getTotalAmount().add(updatedBill.getInstallmentAmount())
+                );
+            } else {
+                logger.debug("Invoice ID={} uses absolute value, skipping totalAmount update", invoice.getId());
+            }
 
             // 7d. Create installment entity (IN MEMORY)
             Installment installment = new Installment();
@@ -199,10 +213,15 @@ public class UpdateBillWithCreditCard {
         }
 
         // Update invoices by subtracting installment amounts
+        // Only update if invoice doesn't use absolute value (BR-I-018)
         for (Map.Entry<Long, BigDecimal> entry : invoiceAmountsToSubtract.entrySet()) {
             invoiceRepository.findById(entry.getKey()).ifPresent(invoice -> {
-                invoice.setTotalAmount(invoice.getTotalAmount().subtract(entry.getValue()));
-                invoiceRepository.save(invoice);
+                if (!invoice.isUseAbsoluteValue()) {
+                    invoice.setTotalAmount(invoice.getTotalAmount().subtract(entry.getValue()));
+                    invoiceRepository.save(invoice);
+                } else {
+                    logger.debug("Invoice ID={} uses absolute value, skipping totalAmount update", invoice.getId());
+                }
             });
         }
 

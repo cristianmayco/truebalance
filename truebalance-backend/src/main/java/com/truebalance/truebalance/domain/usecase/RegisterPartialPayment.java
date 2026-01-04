@@ -3,6 +3,9 @@ package com.truebalance.truebalance.domain.usecase;
 import com.truebalance.truebalance.domain.entity.CreditCard;
 import com.truebalance.truebalance.domain.entity.Invoice;
 import com.truebalance.truebalance.domain.entity.PartialPayment;
+import com.truebalance.truebalance.domain.exception.InvoiceClosedException;
+import com.truebalance.truebalance.domain.exception.InvoiceNotFoundException;
+import com.truebalance.truebalance.domain.exception.PartialPaymentNotAllowedException;
 import com.truebalance.truebalance.domain.port.CreditCardRepositoryPort;
 import com.truebalance.truebalance.domain.port.InvoiceRepositoryPort;
 import com.truebalance.truebalance.domain.port.PartialPaymentRepositoryPort;
@@ -50,7 +53,7 @@ public class RegisterPartialPayment {
         Optional<Invoice> invoiceOpt = invoiceRepository.findById(invoiceId);
 
         if (invoiceOpt.isEmpty()) {
-            throw new IllegalStateException("Invoice not found");
+            throw new InvoiceNotFoundException(invoiceId);
         }
 
         Invoice invoice = invoiceOpt.get();
@@ -59,24 +62,24 @@ public class RegisterPartialPayment {
         Optional<CreditCard> creditCardOpt = creditCardRepository.findById(invoice.getCreditCardId());
 
         if (creditCardOpt.isEmpty()) {
-            throw new IllegalStateException("Credit card not found");
+            throw new IllegalStateException("Credit card not found for invoice ID: " + invoiceId);
         }
 
         CreditCard creditCard = creditCardOpt.get();
 
         // Step 3: BR-PP-001: Validate credit card allows partial payments
         if (!creditCard.isAllowsPartialPayment()) {
-            throw new IllegalStateException("Credit card does not allow partial payments");
+            throw new PartialPaymentNotAllowedException(creditCard.getId());
         }
 
         // Step 4: BR-PP-001: Validate invoice is open
         if (invoice.isClosed()) {
-            throw new IllegalStateException("Invoice is closed. Cannot register partial payments on closed invoices");
+            throw new InvoiceClosedException(invoiceId);
         }
 
         // Step 5: Validate amount > 0
         if (partialPayment.getAmount() == null || partialPayment.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalStateException("Payment amount must be greater than zero");
+            throw new IllegalStateException("Valor do pagamento deve ser maior que zero");
         }
 
         // Step 6: BR-PP-002: Amount CAN exceed invoice balance (no validation against balance)

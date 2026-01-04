@@ -1,6 +1,8 @@
 package com.truebalance.truebalance.application.controller;
 
 import com.truebalance.truebalance.application.dto.input.PartialPaymentRequestDTO;
+import com.truebalance.truebalance.application.dto.input.UpdateInvoiceTotalAmountRequestDTO;
+import com.truebalance.truebalance.application.dto.input.UpdateInvoiceRegisteredLimitRequestDTO;
 import com.truebalance.truebalance.application.dto.output.InstallmentResponseDTO;
 import com.truebalance.truebalance.application.dto.output.InvoiceBalanceDTO;
 import com.truebalance.truebalance.application.dto.output.InvoiceResponseDTO;
@@ -8,6 +10,7 @@ import com.truebalance.truebalance.application.dto.output.PartialPaymentResponse
 import com.truebalance.truebalance.domain.entity.Installment;
 import com.truebalance.truebalance.domain.entity.Invoice;
 import com.truebalance.truebalance.domain.entity.PartialPayment;
+import com.truebalance.truebalance.domain.usecase.AutoCloseInvoicesIfNeeded;
 import com.truebalance.truebalance.domain.usecase.CloseInvoice;
 import com.truebalance.truebalance.domain.usecase.DeletePartialPayment;
 import com.truebalance.truebalance.domain.usecase.GetInvoiceBalance;
@@ -17,6 +20,9 @@ import com.truebalance.truebalance.domain.usecase.GetInvoicesByCreditCard;
 import com.truebalance.truebalance.domain.usecase.GetPartialPaymentsByInvoice;
 import com.truebalance.truebalance.domain.usecase.MarkInvoiceAsPaid;
 import com.truebalance.truebalance.domain.usecase.MarkInvoiceAsUnpaid;
+import com.truebalance.truebalance.domain.usecase.UpdateInvoiceUseAbsoluteValue;
+import com.truebalance.truebalance.domain.usecase.UpdateInvoiceTotalAmount;
+import com.truebalance.truebalance.domain.usecase.UpdateInvoiceRegisteredLimit;
 import com.truebalance.truebalance.domain.usecase.RegisterPartialPayment;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -46,6 +52,7 @@ public class InvoiceController {
     private final GetInvoiceById getInvoiceById;
     private final GetInvoicesByCreditCard getInvoicesByCreditCard;
     private final CloseInvoice closeInvoice;
+    private final AutoCloseInvoicesIfNeeded autoCloseInvoicesIfNeeded;
     private final GetInvoiceBalance getInvoiceBalance;
     private final GetInvoiceInstallments getInvoiceInstallments;
     private final GetPartialPaymentsByInvoice getPartialPaymentsByInvoice;
@@ -53,20 +60,28 @@ public class InvoiceController {
     private final DeletePartialPayment deletePartialPayment;
     private final MarkInvoiceAsPaid markInvoiceAsPaid;
     private final MarkInvoiceAsUnpaid markInvoiceAsUnpaid;
+    private final UpdateInvoiceUseAbsoluteValue updateInvoiceUseAbsoluteValue;
+    private final UpdateInvoiceTotalAmount updateInvoiceTotalAmount;
+    private final UpdateInvoiceRegisteredLimit updateInvoiceRegisteredLimit;
 
     public InvoiceController(GetInvoiceById getInvoiceById,
                              GetInvoicesByCreditCard getInvoicesByCreditCard,
                              CloseInvoice closeInvoice,
+                             AutoCloseInvoicesIfNeeded autoCloseInvoicesIfNeeded,
                              GetInvoiceBalance getInvoiceBalance,
                              GetInvoiceInstallments getInvoiceInstallments,
                              GetPartialPaymentsByInvoice getPartialPaymentsByInvoice,
                              RegisterPartialPayment registerPartialPayment,
                              DeletePartialPayment deletePartialPayment,
                              MarkInvoiceAsPaid markInvoiceAsPaid,
-                             MarkInvoiceAsUnpaid markInvoiceAsUnpaid) {
+                             MarkInvoiceAsUnpaid markInvoiceAsUnpaid,
+                             UpdateInvoiceUseAbsoluteValue updateInvoiceUseAbsoluteValue,
+                             UpdateInvoiceTotalAmount updateInvoiceTotalAmount,
+                             UpdateInvoiceRegisteredLimit updateInvoiceRegisteredLimit) {
         this.getInvoiceById = getInvoiceById;
         this.getInvoicesByCreditCard = getInvoicesByCreditCard;
         this.closeInvoice = closeInvoice;
+        this.autoCloseInvoicesIfNeeded = autoCloseInvoicesIfNeeded;
         this.getInvoiceBalance = getInvoiceBalance;
         this.getInvoiceInstallments = getInvoiceInstallments;
         this.getPartialPaymentsByInvoice = getPartialPaymentsByInvoice;
@@ -74,6 +89,9 @@ public class InvoiceController {
         this.deletePartialPayment = deletePartialPayment;
         this.markInvoiceAsPaid = markInvoiceAsPaid;
         this.markInvoiceAsUnpaid = markInvoiceAsUnpaid;
+        this.updateInvoiceUseAbsoluteValue = updateInvoiceUseAbsoluteValue;
+        this.updateInvoiceTotalAmount = updateInvoiceTotalAmount;
+        this.updateInvoiceRegisteredLimit = updateInvoiceRegisteredLimit;
     }
 
     @Operation(summary = "Listar faturas por cartão de crédito",
@@ -90,6 +108,15 @@ public class InvoiceController {
         logger.info("GET /invoices?creditCardId={} - Buscando faturas do cartão", creditCardId);
         List<Invoice> invoices = getInvoicesByCreditCard.execute(creditCardId);
         logger.info("Encontradas {} faturas para o cartão ID={}", invoices.size(), creditCardId);
+
+        // Auto-close invoices if their closing date has passed
+        logger.info("Chamando autoCloseInvoicesIfNeeded com {} faturas", invoices.size());
+        autoCloseInvoicesIfNeeded.execute(invoices);
+        logger.info("autoCloseInvoicesIfNeeded executado com sucesso");
+
+        // Reload invoices to get updated status
+        invoices = getInvoicesByCreditCard.execute(creditCardId);
+
         List<InvoiceResponseDTO> response = invoices.stream()
                 .map(InvoiceResponseDTO::fromInvoice)
                 .collect(Collectors.toList());
@@ -109,6 +136,14 @@ public class InvoiceController {
             @Parameter(description = "ID da fatura a ser buscada", required = true)
             @PathVariable Long id) {
         Optional<Invoice> invoice = getInvoiceById.execute(id);
+
+        if (invoice.isPresent()) {
+            // Auto-close invoice if its closing date has passed
+            autoCloseInvoicesIfNeeded.execute(List.of(invoice.get()));
+
+            // Reload invoice to get updated status
+            invoice = getInvoiceById.execute(id);
+        }
 
         return invoice
                 .map(inv -> ResponseEntity.ok(InvoiceResponseDTO.fromInvoice(inv)))
@@ -203,19 +238,19 @@ public class InvoiceController {
             @Parameter(description = "ID da fatura", required = true)
             @PathVariable Long id,
             @Valid @RequestBody PartialPaymentRequestDTO requestDTO) {
-        try {
-            PartialPayment partialPayment = requestDTO.toPartialPayment();
-            RegisterPartialPayment.RegisterPartialPaymentResult result = registerPartialPayment.execute(id, partialPayment);
+        logger.info("POST /invoices/{}/partial-payments - Registrando pagamento parcial de {}", id, requestDTO.getAmount());
+        
+        PartialPayment partialPayment = requestDTO.toPartialPayment();
+        RegisterPartialPayment.RegisterPartialPaymentResult result = registerPartialPayment.execute(id, partialPayment);
 
-            PartialPaymentResponseDTO response = PartialPaymentResponseDTO.fromPartialPaymentWithLimit(
-                    result.getPartialPayment(),
-                    result.getAvailableLimit()
-            );
+        PartialPaymentResponseDTO response = PartialPaymentResponseDTO.fromPartialPaymentWithLimit(
+                result.getPartialPayment(),
+                result.getAvailableLimit()
+        );
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        logger.info("Pagamento parcial registrado com sucesso. ID={}, Limite disponível atualizado para {}", 
+                result.getPartialPayment().getId(), result.getAvailableLimit());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @Operation(summary = "Listar pagamentos parciais da fatura",
@@ -257,15 +292,12 @@ public class InvoiceController {
     public ResponseEntity<Void> deletePartialPayment(
             @Parameter(description = "ID do pagamento parcial a ser deletado", required = true)
             @PathVariable Long id) {
-        try {
-            boolean deleted = deletePartialPayment.execute(id);
-
-            return deleted
-                    ? ResponseEntity.noContent().build()
-                    : ResponseEntity.notFound().build();
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        logger.info("DELETE /partial-payments/{} - Deletando pagamento parcial", id);
+        
+        deletePartialPayment.execute(id);
+        
+        logger.info("Pagamento parcial ID={} deletado com sucesso", id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Marcar fatura como paga",
@@ -311,7 +343,104 @@ public class InvoiceController {
                     logger.info("Fatura ID={} marcada como não paga", id);
                     return ResponseEntity.ok(InvoiceResponseDTO.fromInvoice(inv));
                 })
+                    .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Operation(summary = "Atualizar flag de valor absoluto da fatura",
+               description = "Define se a fatura deve usar valor absoluto (não recalcular pela soma das parcelas). " +
+                           "Útil para faturas antigas onde não todas as contas foram cadastradas.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Flag atualizada com sucesso",
+                    content = @Content(mediaType = "application/json",
+                                      schema = @Schema(implementation = InvoiceResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Fatura não encontrada", content = @Content)
+    })
+    @PatchMapping("/{id}/use-absolute-value")
+    public ResponseEntity<InvoiceResponseDTO> updateUseAbsoluteValue(
+            @Parameter(description = "ID da fatura", required = true)
+            @PathVariable Long id,
+            @Parameter(description = "Valor do flag (true = usar valor absoluto, false = calcular pela soma)", required = true)
+            @RequestParam boolean useAbsoluteValue) {
+        logger.info("PATCH /invoices/{}/use-absolute-value - Atualizando flag para {}", id, useAbsoluteValue);
+        Optional<Invoice> invoice = updateInvoiceUseAbsoluteValue.execute(id, useAbsoluteValue);
+
+        return invoice
+                .map(inv -> {
+                    logger.info("Flag useAbsoluteValue atualizado para {} na fatura ID={}", useAbsoluteValue, id);
+                    return ResponseEntity.ok(InvoiceResponseDTO.fromInvoice(inv));
+                })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Operation(summary = "Atualizar valor total da fatura",
+               description = "Atualiza o valor total de uma fatura. " +
+                           "Apenas permitido quando useAbsoluteValue = true. " +
+                           "Quando useAbsoluteValue = false, o total é calculado automaticamente pela soma das parcelas.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Valor total atualizado com sucesso",
+                    content = @Content(mediaType = "application/json",
+                                      schema = @Schema(implementation = InvoiceResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Fatura não encontrada", content = @Content),
+            @ApiResponse(responseCode = "400", description = "useAbsoluteValue não está habilitado para esta fatura", content = @Content)
+    })
+    @PatchMapping("/{id}/total-amount")
+    public ResponseEntity<?> updateTotalAmount(
+            @Parameter(description = "ID da fatura", required = true)
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateInvoiceTotalAmountRequestDTO requestDTO) {
+        logger.info("PATCH /invoices/{}/total-amount - Atualizando valor total para {}", id, requestDTO.getTotalAmount());
+
+        try {
+            Optional<Invoice> invoice = updateInvoiceTotalAmount.execute(id, requestDTO.getTotalAmount());
+
+            return invoice
+                    .map(inv -> {
+                        logger.info("Valor total atualizado para {} na fatura ID={}", requestDTO.getTotalAmount(), id);
+                        return ResponseEntity.ok(InvoiceResponseDTO.fromInvoice(inv));
+                    })
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (IllegalStateException e) {
+            logger.error("Erro ao atualizar valor total da fatura ID={}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Cadastrar limite disponível",
+               description = "Define um limite disponível registrado para uma fatura fechada. " +
+                           "Quando ativado, esta fatura se torna o ponto de partida para cálculos de limite, " +
+                           "ignorando todas as faturas anteriores. Apenas permitido em faturas fechadas.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Limite registrado atualizado com sucesso",
+                    content = @Content(mediaType = "application/json",
+                                      schema = @Schema(implementation = InvoiceResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Fatura não encontrada", content = @Content),
+            @ApiResponse(responseCode = "400", description = "Fatura não está fechada ou dados inválidos", content = @Content)
+    })
+    @PatchMapping("/{id}/registered-limit")
+    public ResponseEntity<?> updateRegisteredLimit(
+            @Parameter(description = "ID da fatura", required = true)
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateInvoiceRegisteredLimitRequestDTO requestDTO) {
+        logger.info("PATCH /invoices/{}/registered-limit - Atualizando limite registrado: register={}, limit={}",
+                id, requestDTO.getRegisterAvailableLimit(), requestDTO.getRegisteredAvailableLimit());
+
+        try {
+            Optional<Invoice> invoice = updateInvoiceRegisteredLimit.execute(
+                    id,
+                    requestDTO.getRegisterAvailableLimit(),
+                    requestDTO.getRegisteredAvailableLimit()
+            );
+
+            return invoice
+                    .map(inv -> {
+                        logger.info("Limite registrado atualizado na fatura ID={}", id);
+                        return ResponseEntity.ok(InvoiceResponseDTO.fromInvoice(inv));
+                    })
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            logger.error("Erro ao atualizar limite registrado da fatura ID={}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
 }

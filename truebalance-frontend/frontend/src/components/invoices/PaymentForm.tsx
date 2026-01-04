@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { DollarSign, Calendar } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 import { partialPaymentSchema, fullPaymentSchema, type PartialPaymentFormData, type FullPaymentFormData } from '@/schemas/partialPayment.schema';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -9,7 +9,7 @@ import Button from '@/components/ui/Button';
 interface PaymentFormProps {
   totalAmount: number;
   remainingAmount: number;
-  onSubmit: (data: { amount?: number; description?: string; paymentDate: Date }) => void;
+  onSubmit: (data: { amount?: number; description?: string }) => void;
   isLoading?: boolean;
 }
 
@@ -27,7 +27,6 @@ export default function PaymentForm({ totalAmount, remainingAmount, onSubmit, is
     resolver: zodResolver(partialPaymentSchema) as any,
     defaultValues: {
       amount: 0,
-      paymentDate: new Date(),
       description: '',
     },
   });
@@ -40,7 +39,6 @@ export default function PaymentForm({ totalAmount, remainingAmount, onSubmit, is
   } = useForm({
     resolver: zodResolver(fullPaymentSchema) as any,
     defaultValues: {
-      paymentDate: new Date(),
       description: '',
     },
   });
@@ -53,20 +51,18 @@ export default function PaymentForm({ totalAmount, remainingAmount, onSubmit, is
   };
 
   const onSubmitPartial = (data: PartialPaymentFormData) => {
-    const paymentDate = data.paymentDate || new Date();
+    // Backend sets paymentDate automatically, we don't send it
     onSubmit({
       amount: data.amount,
       description: data.description,
-      paymentDate: paymentDate instanceof Date ? paymentDate : new Date(paymentDate),
     });
   };
 
   const onSubmitFull = (data: FullPaymentFormData) => {
-    const paymentDate = data.paymentDate || new Date();
+    // For full payment, amount is the remaining amount
     onSubmit({
       amount: remainingAmount,
       description: data.description,
-      paymentDate: paymentDate instanceof Date ? paymentDate : new Date(paymentDate),
     });
   };
 
@@ -136,17 +132,8 @@ export default function PaymentForm({ totalAmount, remainingAmount, onSubmit, is
       {/* Full Payment Form */}
       {paymentType === 'full' && (
         <form onSubmit={handleSubmitFull(onSubmitFull as any)} className="space-y-4">
-          <Input
-            label="Data do Pagamento"
-            type="date"
-            icon={<Calendar className="w-4 h-4" />}
-            {...registerFull('paymentDate', { 
-              valueAsDate: true,
-              setValueAs: (value: string) => value ? new Date(value) : new Date()
-            })}
-            error={errorsFull.paymentDate?.message}
-          />
-
+          {/* Note: Payment date is set automatically by the backend when marking as paid */}
+          
           <div className="space-y-2">
             <label htmlFor="description-full" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Descrição (opcional)
@@ -184,23 +171,25 @@ export default function PaymentForm({ totalAmount, remainingAmount, onSubmit, is
             label="Valor do Pagamento"
             type="number"
             step="0.01"
+            min="0.01"
             icon={<DollarSign className="w-4 h-4" />}
             placeholder="0,00"
-            {...registerPartial('amount', { valueAsNumber: true })}
+            {...registerPartial('amount', { 
+              valueAsNumber: true,
+              validate: (value) => {
+                if (!value || value <= 0) {
+                  return 'O valor deve ser maior que zero'
+                }
+                // Note: Backend allows exceeding invoice balance (creates credit)
+                // So we don't validate max value here
+                return true
+              }
+            })}
             error={errorsPartial.amount?.message}
-            helpText={`Valor máximo: ${formatCurrency(remainingAmount)}`}
+            helpText={`Valor sugerido: ${formatCurrency(remainingAmount)} (pode exceder para criar crédito)`}
           />
 
-          <Input
-            label="Data do Pagamento"
-            type="date"
-            icon={<Calendar className="w-4 h-4" />}
-            {...registerPartial('paymentDate', { 
-              valueAsDate: true,
-              setValueAs: (value: string) => value ? new Date(value) : new Date()
-            })}
-            error={errorsPartial.paymentDate?.message}
-          />
+          {/* Note: Payment date is set automatically by the backend */}
 
           <div className="space-y-2">
             <label htmlFor="description-partial" className="block text-sm font-medium text-gray-700 dark:text-gray-300">

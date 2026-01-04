@@ -15,6 +15,9 @@ public class InvoiceResponseDTO {
     private BigDecimal previousBalance;
     private boolean closed;
     private boolean paid;
+    private boolean useAbsoluteValue;
+    private boolean registerAvailableLimit;
+    private BigDecimal registeredAvailableLimit;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -23,7 +26,8 @@ public class InvoiceResponseDTO {
 
     public InvoiceResponseDTO(Long id, Long creditCardId, LocalDate referenceMonth,
                               BigDecimal totalAmount, BigDecimal previousBalance,
-                              boolean closed, boolean paid,
+                              boolean closed, boolean paid, boolean useAbsoluteValue,
+                              boolean registerAvailableLimit, BigDecimal registeredAvailableLimit,
                               LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.creditCardId = creditCardId;
@@ -32,6 +36,9 @@ public class InvoiceResponseDTO {
         this.previousBalance = previousBalance;
         this.closed = closed;
         this.paid = paid;
+        this.useAbsoluteValue = useAbsoluteValue;
+        this.registerAvailableLimit = registerAvailableLimit;
+        this.registeredAvailableLimit = registeredAvailableLimit;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -45,6 +52,9 @@ public class InvoiceResponseDTO {
                 invoice.getPreviousBalance(),
                 invoice.isClosed(),
                 invoice.isPaid(),
+                invoice.isUseAbsoluteValue(),
+                invoice.isRegisterAvailableLimit(),
+                invoice.getRegisteredAvailableLimit(),
                 invoice.getCreatedAt(),
                 invoice.getUpdatedAt()
         );
@@ -104,6 +114,30 @@ public class InvoiceResponseDTO {
 
     public void setPaid(boolean paid) {
         this.paid = paid;
+    }
+
+    public boolean isUseAbsoluteValue() {
+        return useAbsoluteValue;
+    }
+
+    public void setUseAbsoluteValue(boolean useAbsoluteValue) {
+        this.useAbsoluteValue = useAbsoluteValue;
+    }
+
+    public boolean isRegisterAvailableLimit() {
+        return registerAvailableLimit;
+    }
+
+    public void setRegisterAvailableLimit(boolean registerAvailableLimit) {
+        this.registerAvailableLimit = registerAvailableLimit;
+    }
+
+    public BigDecimal getRegisteredAvailableLimit() {
+        return registeredAvailableLimit;
+    }
+
+    public void setRegisteredAvailableLimit(BigDecimal registeredAvailableLimit) {
+        this.registeredAvailableLimit = registeredAvailableLimit;
     }
 
     public LocalDateTime getCreatedAt() {

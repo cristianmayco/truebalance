@@ -22,6 +22,8 @@ public class InvoiceImportItemDTO {
 
     private Boolean paid;
 
+    private Boolean useAbsoluteValue; // Se true, totalAmount não é recalculado pela soma das parcelas
+
     public InvoiceImportItemDTO() {
     }
 
@@ -71,5 +73,13 @@ public class InvoiceImportItemDTO {
 
     public void setPaid(Boolean paid) {
         this.paid = paid;
+    }
+
+    public Boolean getUseAbsoluteValue() {
+        return useAbsoluteValue;
+    }
+
+    public void setUseAbsoluteValue(Boolean useAbsoluteValue) {
+        this.useAbsoluteValue = useAbsoluteValue;
     }
 }

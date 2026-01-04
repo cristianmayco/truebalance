@@ -16,4 +16,8 @@ public interface InvoiceRepository extends JpaRepository<InvoiceEntity, Long> {
     List<InvoiceEntity> findByCreditCardIdOrderByReferenceMonthDesc(Long creditCardId);
 
     List<InvoiceEntity> findByCreditCardIdAndClosed(Long creditCardId, boolean closed);
+
+    List<InvoiceEntity> findByCreditCardIdAndClosedAndPaid(Long creditCardId, boolean closed, boolean paid);
+
+    List<InvoiceEntity> findByCreditCardIdAndRegisterAvailableLimitOrderByReferenceMonthDesc(Long creditCardId, boolean registerAvailableLimit);
 }

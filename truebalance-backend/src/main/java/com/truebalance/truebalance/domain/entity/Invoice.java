@@ -13,6 +13,9 @@ public class Invoice {
     private BigDecimal previousBalance;
     private boolean closed;
     private boolean paid;
+    private boolean useAbsoluteValue; // Se true, totalAmount não é recalculado pela soma das parcelas
+    private boolean registerAvailableLimit; // Se true, esta fatura é o ponto de partida para cálculos de limite
+    private BigDecimal registeredAvailableLimit; // Valor do limite disponível registrado (usado quando registerAvailableLimit = true)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -70,6 +73,30 @@ public class Invoice {
 
     public void setPaid(boolean paid) {
         this.paid = paid;
+    }
+
+    public boolean isUseAbsoluteValue() {
+        return useAbsoluteValue;
+    }
+
+    public void setUseAbsoluteValue(boolean useAbsoluteValue) {
+        this.useAbsoluteValue = useAbsoluteValue;
+    }
+
+    public boolean isRegisterAvailableLimit() {
+        return registerAvailableLimit;
+    }
+
+    public void setRegisterAvailableLimit(boolean registerAvailableLimit) {
+        this.registerAvailableLimit = registerAvailableLimit;
+    }
+
+    public BigDecimal getRegisteredAvailableLimit() {
+        return registeredAvailableLimit;
+    }
+
+    public void setRegisteredAvailableLimit(BigDecimal registeredAvailableLimit) {
+        this.registeredAvailableLimit = registeredAvailableLimit;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -66,6 +66,7 @@ public class CloseInvoice {
                 nextInvoice.setPreviousBalance(finalAmount); // negative (credit)
                 nextInvoice.setClosed(false);
                 nextInvoice.setPaid(false);
+                nextInvoice.setUseAbsoluteValue(false); // Default: calculate from installments
                 invoiceRepository.save(nextInvoice);
             }
         } else if (finalAmount.compareTo(BigDecimal.ZERO) == 0) {
@@ -96,6 +97,7 @@ public class CloseInvoice {
                 nextInvoice.setPreviousBalance(finalAmount); // positive (unpaid balance)
                 nextInvoice.setClosed(false);
                 nextInvoice.setPaid(false);
+                nextInvoice.setUseAbsoluteValue(false); // Default: calculate from installments
                 invoiceRepository.save(nextInvoice);
             }
         }

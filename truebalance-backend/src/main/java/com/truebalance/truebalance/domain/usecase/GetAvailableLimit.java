@@ -20,11 +20,19 @@ import java.util.stream.Collectors;
  *
  * Where:
  * - creditLimit: Fixed total limit of the card (from credit_cards table)
- * - usedLimit: Sum of all installments in OPEN invoices
- * - partialPaymentsTotal: Sum of all partial payments in OPEN invoices
+ * - usedLimit: Sum of all installments in OPEN and UNPAID invoices
+ * - partialPaymentsTotal: Sum of all partial payments in OPEN and UNPAID invoices
  *
- * Only OPEN invoices (closed = false) are considered.
+ * Only OPEN and UNPAID invoices (closed = false AND paid = false) are considered.
+ * Paid invoices (paid = true) do not consume credit limit, freeing it up for new purchases.
  * The available limit can EXCEED the creditLimit if there are partial payments creating credit.
+ *
+ * Registered Available Limit:
+ * If there's a CLOSED invoice with registerAvailableLimit = true:
+ * - The most recent such invoice becomes the starting point for calculations
+ * - All previous invoices are ignored
+ * - The calculation starts from the registeredAvailableLimit value of that invoice
+ * - Only invoices AFTER that reference month are considered in the calculation
  */
 public class GetAvailableLimit {
 
@@ -58,12 +66,82 @@ public class GetAvailableLimit {
 
         BigDecimal creditLimit = creditCard.getCreditLimit();
 
-        // 2. Find all OPEN invoices for this credit card
-        List<Invoice> openInvoices = invoiceRepository
-                .findByCreditCardIdAndClosed(creditCardId, false);
+        // 2. Check if there's a registered available limit
+        List<Invoice> registeredLimitInvoices = invoiceRepository
+                .findByCreditCardIdAndRegisterAvailableLimitOrderByReferenceMonthDesc(creditCardId, true);
 
-        // 3. If no open invoices, entire credit limit is available
-        if (openInvoices.isEmpty()) {
+        // 3. If there's a registered limit, use it as the starting point
+        if (!registeredLimitInvoices.isEmpty()) {
+            Invoice registeredLimitInvoice = registeredLimitInvoices.get(0); // Most recent
+            return calculateFromRegisteredLimit(creditCardId, creditLimit, registeredLimitInvoice);
+        }
+
+        // 4. Otherwise, use the standard calculation
+        return calculateStandardLimit(creditCardId, creditLimit);
+    }
+
+    /**
+     * Calculate available limit starting from a registered limit invoice.
+     * Ignores all invoices before the registered limit invoice.
+     */
+    private AvailableLimitResult calculateFromRegisteredLimit(
+            Long creditCardId, BigDecimal creditLimit, Invoice registeredLimitInvoice) {
+
+        BigDecimal startingLimit = registeredLimitInvoice.getRegisteredAvailableLimit();
+
+        // Find all OPEN and UNPAID invoices AFTER the registered limit invoice
+        List<Invoice> allOpenUnpaidInvoices = invoiceRepository
+                .findByCreditCardIdAndClosedAndPaid(creditCardId, false, false);
+
+        // Filter to keep only invoices after the registered limit invoice
+        List<Invoice> relevantInvoices = allOpenUnpaidInvoices.stream()
+                .filter(inv -> inv.getReferenceMonth().isAfter(registeredLimitInvoice.getReferenceMonth()))
+                .collect(Collectors.toList());
+
+        // If no relevant invoices, return the registered limit as-is
+        if (relevantInvoices.isEmpty()) {
+            return new AvailableLimitResult(
+                    creditCardId,
+                    creditLimit,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    startingLimit
+            );
+        }
+
+        // Calculate used limit and partial payments from relevant invoices
+        List<Long> relevantInvoiceIds = relevantInvoices.stream()
+                .map(Invoice::getId)
+                .collect(Collectors.toList());
+
+        BigDecimal usedLimit = installmentRepository.sumAmountByInvoiceIds(relevantInvoiceIds);
+        BigDecimal partialPaymentsTotal = partialPaymentRepository.sumAmountByInvoiceIds(relevantInvoiceIds);
+
+        // Calculate available limit starting from registered limit
+        // availableLimit = registeredLimit - usedLimit + partialPayments
+        BigDecimal availableLimit = startingLimit
+                .subtract(usedLimit)
+                .add(partialPaymentsTotal);
+
+        return new AvailableLimitResult(
+                creditCardId,
+                creditLimit,
+                usedLimit,
+                partialPaymentsTotal,
+                availableLimit
+        );
+    }
+
+    /**
+     * Standard calculation when no registered limit is set.
+     */
+    private AvailableLimitResult calculateStandardLimit(Long creditCardId, BigDecimal creditLimit) {
+        // Find all OPEN and UNPAID invoices for this credit card
+        List<Invoice> openUnpaidInvoices = invoiceRepository
+                .findByCreditCardIdAndClosedAndPaid(creditCardId, false, false);
+
+        // If no open unpaid invoices, entire credit limit is available
+        if (openUnpaidInvoices.isEmpty()) {
             return new AvailableLimitResult(
                     creditCardId,
                     creditLimit,
@@ -73,18 +151,18 @@ public class GetAvailableLimit {
             );
         }
 
-        // 4. Extract invoice IDs
-        List<Long> openInvoiceIds = openInvoices.stream()
+        // Extract invoice IDs
+        List<Long> openUnpaidInvoiceIds = openUnpaidInvoices.stream()
                 .map(Invoice::getId)
                 .collect(Collectors.toList());
 
-        // 5. Sum all installment amounts from open invoices (BATCH QUERY)
-        BigDecimal usedLimit = installmentRepository.sumAmountByInvoiceIds(openInvoiceIds);
+        // Sum all installment amounts from open unpaid invoices
+        BigDecimal usedLimit = installmentRepository.sumAmountByInvoiceIds(openUnpaidInvoiceIds);
 
-        // 6. Sum all partial payment amounts from open invoices (BATCH QUERY)
-        BigDecimal partialPaymentsTotal = partialPaymentRepository.sumAmountByInvoiceIds(openInvoiceIds);
+        // Sum all partial payment amounts from open unpaid invoices
+        BigDecimal partialPaymentsTotal = partialPaymentRepository.sumAmountByInvoiceIds(openUnpaidInvoiceIds);
 
-        // 7. Calculate available limit (BR-CC-008)
+        // Calculate available limit (BR-CC-008)
         // availableLimit = creditLimit - usedLimit + partialPayments
         BigDecimal availableLimit = creditLimit
                 .subtract(usedLimit)

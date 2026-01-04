@@ -124,9 +124,14 @@ public class CreateBillWithCreditCard {
                     i, invoice.getId(), invoice.getReferenceMonth());
 
             // 5c. Update invoice total amount (IN MEMORY)
-            invoice.setTotalAmount(
-                    invoice.getTotalAmount().add(savedBill.getInstallmentAmount())
-            );
+            // Only update if invoice doesn't use absolute value (BR-I-018)
+            if (!invoice.isUseAbsoluteValue()) {
+                invoice.setTotalAmount(
+                        invoice.getTotalAmount().add(savedBill.getInstallmentAmount())
+                );
+            } else {
+                logger.debug("Invoice ID={} uses absolute value, skipping totalAmount update", invoice.getId());
+            }
 
             // 5d. Create installment entity (IN MEMORY)
             Installment installment = new Installment();

@@ -38,10 +38,11 @@ import static org.mockito.Mockito.*;
  *
  * Where:
  * - creditLimit: Fixed total limit of the card
- * - usedLimit: Sum of all installments in OPEN invoices
- * - partialPaymentsTotal: Sum of all partial payments in OPEN invoices
+ * - usedLimit: Sum of all installments in OPEN and UNPAID invoices
+ * - partialPaymentsTotal: Sum of all partial payments in OPEN and UNPAID invoices
  *
- * Only OPEN invoices (closed = false) are considered.
+ * Only OPEN and UNPAID invoices (closed = false AND paid = false) are considered.
+ * Paid invoices do not consume credit limit.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("GetAvailableLimit - Critical Financial Calculation Tests")
@@ -81,7 +82,7 @@ class GetAvailableLimitTest {
         CreditCard creditCard = TestDataBuilder.createCreditCard(creditCardId, "Test Card", new BigDecimal("5000.00"), 10, 17);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(Collections.emptyList());
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(Collections.emptyList());
 
         // When
         AvailableLimitResult result = useCase.execute(creditCardId);
@@ -109,7 +110,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(BigDecimal.ZERO);
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(BigDecimal.ZERO);
 
@@ -132,7 +133,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("1500.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(BigDecimal.ZERO);
 
@@ -156,7 +157,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("2000.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("500.00"));
 
@@ -185,7 +186,7 @@ class GetAvailableLimitTest {
         invoice3.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false))
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false))
                 .thenReturn(Arrays.asList(invoice1, invoice2, invoice3));
         when(installmentRepository.sumAmountByInvoiceIds(Arrays.asList(1L, 2L, 3L)))
                 .thenReturn(new BigDecimal("4500.00")); // Total across all invoices
@@ -217,7 +218,7 @@ class GetAvailableLimitTest {
                 .hasMessageContaining("999");
 
         // Verify no further queries were made
-        verify(invoiceRepository, never()).findByCreditCardIdAndClosed(anyLong(), anyBoolean());
+        verify(invoiceRepository, never()).findByCreditCardIdAndClosedAndPaid(anyLong(), anyBoolean(), anyBoolean());
     }
 
     // ========== EDGE CASES ==========
@@ -232,7 +233,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("5000.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(BigDecimal.ZERO);
 
@@ -253,7 +254,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("6000.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(BigDecimal.ZERO);
 
@@ -274,7 +275,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("1000.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("2000.00")); // More than installments
 
@@ -298,7 +299,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("3250.75"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("1100.50"));
 
@@ -329,16 +330,44 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("1000.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(BigDecimal.ZERO);
 
         // When
         useCase.execute(creditCardId);
 
-        // Then: Verify only closed=false was queried
-        verify(invoiceRepository).findByCreditCardIdAndClosed(creditCardId, false);
-        verify(invoiceRepository, never()).findByCreditCardIdAndClosed(creditCardId, true);
+        // Then: Verify only closed=false and paid=false was queried
+        verify(invoiceRepository).findByCreditCardIdAndClosedAndPaid(creditCardId, false, false);
+        verify(invoiceRepository, never()).findByCreditCardIdAndClosedAndPaid(creditCardId, true, anyBoolean());
+    }
+
+    @Test
+    @DisplayName("Should ignore paid invoices - they do not consume credit limit")
+    void shouldIgnorePaidInvoices() {
+        // Given: Credit card with paid invoice (paid = true, closed = false)
+        Long creditCardId = 1L;
+        CreditCard creditCard = TestDataBuilder.createCreditCard(creditCardId, "Test Card", new BigDecimal("5000.00"), 10, 17);
+        
+        Invoice paidInvoice = TestDataBuilder.createInvoice(1L, creditCardId, LocalDate.of(2025, 1, 1), new BigDecimal("2000.00"));
+        paidInvoice.setClosed(false);
+        paidInvoice.setPaid(true); // Invoice is paid
+
+        // Paid invoice should not be returned by repository query
+        when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false))
+                .thenReturn(Collections.emptyList()); // No unpaid invoices
+
+        // When
+        AvailableLimitResult result = useCase.execute(creditCardId);
+
+        // Then: Full limit available because paid invoice doesn't consume limit
+        assertThat(result.getUsedLimit()).isEqualByComparingTo("0.00");
+        assertThat(result.getAvailableLimit()).isEqualByComparingTo("5000.00");
+        
+        // Verify that only unpaid invoices were queried
+        verify(invoiceRepository).findByCreditCardIdAndClosedAndPaid(creditCardId, false, false);
+        verify(installmentRepository, never()).sumAmountByInvoiceIds(anyList());
     }
 
     @Test
@@ -352,7 +381,7 @@ class GetAvailableLimitTest {
 
         // Closed invoice exists but not returned by repository
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("500.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(BigDecimal.ZERO);
 
@@ -383,7 +412,7 @@ class GetAvailableLimitTest {
         List<Long> invoiceIds = Arrays.asList(1L, 2L, 3L);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false))
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false))
                 .thenReturn(Arrays.asList(invoice1, invoice2, invoice3));
         when(installmentRepository.sumAmountByInvoiceIds(invoiceIds)).thenReturn(new BigDecimal("2000.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(invoiceIds)).thenReturn(new BigDecimal("500.00"));
@@ -406,7 +435,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("1234.567"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("100.123"));
 
@@ -427,7 +456,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("2500.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("750.00"));
 
@@ -453,7 +482,7 @@ class GetAvailableLimitTest {
         openInvoice.setClosed(false);
 
         when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
-        when(invoiceRepository.findByCreditCardIdAndClosed(creditCardId, false)).thenReturn(List.of(openInvoice));
+        when(invoiceRepository.findByCreditCardIdAndClosedAndPaid(creditCardId, false, false)).thenReturn(List.of(openInvoice));
         when(installmentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("1000.00"));
         when(partialPaymentRepository.sumAmountByInvoiceIds(List.of(1L))).thenReturn(new BigDecimal("1000.00"));
 

@@ -94,6 +94,12 @@ public class UseCaseConfig {
     }
 
     @Bean
+    public AutoCloseInvoicesIfNeeded autoCloseInvoicesIfNeeded(CreditCardRepositoryPort creditCardRepositoryPort,
+                                                                 CloseInvoice closeInvoice) {
+        return new AutoCloseInvoicesIfNeeded(creditCardRepositoryPort, closeInvoice);
+    }
+
+    @Bean
     public GetBillInstallments getBillInstallments(InstallmentRepositoryPort installmentRepositoryPort) {
         return new GetBillInstallments(installmentRepositoryPort);
     }
@@ -196,6 +202,21 @@ public class UseCaseConfig {
     }
 
     @Bean
+    public UpdateInvoiceUseAbsoluteValue updateInvoiceUseAbsoluteValue(InvoiceRepositoryPort invoiceRepositoryPort) {
+        return new UpdateInvoiceUseAbsoluteValue(invoiceRepositoryPort);
+    }
+
+    @Bean
+    public UpdateInvoiceTotalAmount updateInvoiceTotalAmount(InvoiceRepositoryPort invoiceRepositoryPort) {
+        return new UpdateInvoiceTotalAmount(invoiceRepositoryPort);
+    }
+
+    @Bean
+    public UpdateInvoiceRegisteredLimit updateInvoiceRegisteredLimit(InvoiceRepositoryPort invoiceRepositoryPort) {
+        return new UpdateInvoiceRegisteredLimit(invoiceRepositoryPort);
+    }
+
+    @Bean
     public ExportData exportData(BillRepositoryPort billRepositoryPort,
                                  CreditCardRepositoryPort creditCardRepositoryPort,
                                  InvoiceRepositoryPort invoiceRepositoryPort,
@@ -208,8 +229,30 @@ public class UseCaseConfig {
                                  CreditCardRepositoryPort creditCardRepositoryPort,
                                  InvoiceRepositoryPort invoiceRepositoryPort,
                                  CreateBill createBill,
-                                 CreateCreditCard createCreditCard) {
+                                 CreateCreditCard createCreditCard,
+                                 CreateBillWithCreditCard createBillWithCreditCard,
+                                 ProcessPostImport processPostImport) {
         return new ImportData(billRepositoryPort, creditCardRepositoryPort, invoiceRepositoryPort,
-                createBill, createCreditCard);
+                createBill, createCreditCard, createBillWithCreditCard, processPostImport);
+    }
+
+    @Bean
+    public ProcessPostImport processPostImport(
+            BillRepositoryPort billRepositoryPort,
+            CreditCardRepositoryPort creditCardRepositoryPort,
+            InvoiceRepositoryPort invoiceRepositoryPort,
+            InstallmentRepositoryPort installmentRepositoryPort,
+            GenerateOrGetInvoiceForMonth generateOrGetInvoiceForMonth,
+            InstallmentDateCalculator installmentDateCalculator,
+            CreateBillWithCreditCard createBillWithCreditCard) {
+        return new ProcessPostImport(
+                billRepositoryPort,
+                creditCardRepositoryPort,
+                invoiceRepositoryPort,
+                installmentRepositoryPort,
+                generateOrGetInvoiceForMonth,
+                installmentDateCalculator,
+                createBillWithCreditCard
+        );
     }
 }

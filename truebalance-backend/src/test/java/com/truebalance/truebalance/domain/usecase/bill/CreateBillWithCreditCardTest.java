@@ -785,4 +785,50 @@ class CreateBillWithCreditCardTest {
         assertThat(result.getId()).isEqualTo(123L);
         assertThat(result.getName()).isEqualTo("Return Test");
     }
+
+    @Test
+    @DisplayName("Should not update invoice totalAmount when useAbsoluteValue is true")
+    void shouldNotUpdateInvoiceTotalWhenUseAbsoluteValueIsTrue() {
+        // Given: Bill with invoice that has useAbsoluteValue = true
+        Bill inputBill = TestDataBuilder.createBill(null, "Test Bill", new BigDecimal("500.00"), 1);
+        Bill savedBill = TestDataBuilder.createBill(1L, "Test Bill", new BigDecimal("500.00"), 1);
+        savedBill.setInstallmentAmount(new BigDecimal("500.00"));
+        Long creditCardId = 1L;
+        CreditCard creditCard = TestDataBuilder.createCreditCard(creditCardId, "Test Card", new BigDecimal("5000.00"), 10, 17);
+        AvailableLimitResult limitResult = TestDataBuilder.createAvailableLimitResult(creditCardId, new BigDecimal("5000.00"), BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("5000.00"));
+
+        Invoice invoice = TestDataBuilder.createInvoice(1L, creditCardId, LocalDate.of(2025, 1, 1), new BigDecimal("2000.00"));
+        invoice.setUseAbsoluteValue(true); // Invoice uses absolute value
+        BigDecimal originalTotal = invoice.getTotalAmount();
+
+        InstallmentDateInfo dateInfo = TestDataBuilder.createInstallmentDateInfo(1, LocalDate.of(2025, 1, 17), LocalDate.of(2025, 1, 1));
+
+        when(creditCardRepository.findById(creditCardId)).thenReturn(Optional.of(creditCard));
+        when(getAvailableLimit.execute(creditCardId)).thenReturn(limitResult);
+        when(createBill.addBill(inputBill)).thenReturn(savedBill);
+        when(installmentDateCalculator.calculate(any(), eq(10), eq(17), eq(1))).thenReturn(dateInfo);
+        when(generateOrGetInvoiceForMonth.execute(creditCardId, LocalDate.of(2025, 1, 1))).thenReturn(invoice);
+        when(invoiceRepository.saveAll(anyList())).thenAnswer(invocation -> {
+            List<Invoice> invoices = invocation.getArgument(0);
+            // Verify that totalAmount was NOT updated
+            assertThat(invoices.get(0).getTotalAmount()).isEqualByComparingTo(originalTotal);
+            return invoices;
+        });
+        when(installmentRepository.saveAll(anyList())).thenReturn(List.of());
+
+        // When
+        Bill result = useCase.execute(inputBill, creditCardId);
+
+        // Then: Invoice totalAmount should remain unchanged
+        verify(invoiceRepository).saveAll(invoiceListCaptor.capture());
+        List<Invoice> savedInvoices = invoiceListCaptor.getValue();
+        assertThat(savedInvoices).hasSize(1);
+        assertThat(savedInvoices.get(0).getTotalAmount()).isEqualByComparingTo(originalTotal);
+        assertThat(savedInvoices.get(0).isUseAbsoluteValue()).isTrue();
+        
+        // Installment should still be created
+        verify(installmentRepository).saveAll(installmentListCaptor.capture());
+        List<Installment> savedInstallments = installmentListCaptor.getValue();
+        assertThat(savedInstallments).hasSize(1);
+    }
 }

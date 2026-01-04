@@ -40,6 +40,9 @@ public class InvoiceRepositoryAdapter implements InvoiceRepositoryPort {
                 entity.setPreviousBalance(invoice.getPreviousBalance());
                 entity.setClosed(invoice.isClosed());
                 entity.setPaid(invoice.isPaid());
+                entity.setUseAbsoluteValue(invoice.isUseAbsoluteValue());
+                entity.setRegisterAvailableLimit(invoice.isRegisterAvailableLimit());
+                entity.setRegisteredAvailableLimit(invoice.getRegisteredAvailableLimit());
             } else {
                 // Entity has ID but doesn't exist in DB (detached/test scenario)
                 // Use toEntity() and let JPA handle it
@@ -71,6 +74,7 @@ public class InvoiceRepositoryAdapter implements InvoiceRepositoryPort {
                             entity.setPreviousBalance(invoice.getPreviousBalance());
                             entity.setClosed(invoice.isClosed());
                             entity.setPaid(invoice.isPaid());
+                            entity.setUseAbsoluteValue(invoice.isUseAbsoluteValue());
                             return entity;
                         } else {
                             // Entity has ID but doesn't exist in DB (detached/test scenario)
@@ -111,6 +115,30 @@ public class InvoiceRepositoryAdapter implements InvoiceRepositoryPort {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public List<Invoice> findByCreditCardIdAndClosedAndPaid(Long creditCardId, boolean closed, boolean paid) {
+        return repository.findByCreditCardIdAndClosedAndPaid(creditCardId, closed, paid).stream()
+                .map(this::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Invoice> findAll() {
+        return repository.findAll().stream()
+                .map(this::toDomain)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Invoice> findByCreditCardIdAndRegisterAvailableLimitOrderByReferenceMonthDesc(
+            Long creditCardId, boolean registerAvailableLimit) {
+        return repository.findByCreditCardIdAndRegisterAvailableLimitOrderByReferenceMonthDesc(
+                creditCardId, registerAvailableLimit)
+                .stream()
+                .map(this::toDomain)
+                .collect(Collectors.toList());
+    }
+
     private InvoiceEntity toEntity(Invoice invoice) {
         InvoiceEntity entity = new InvoiceEntity();
         entity.setId(invoice.getId());
@@ -120,6 +148,9 @@ public class InvoiceRepositoryAdapter implements InvoiceRepositoryPort {
         entity.setPreviousBalance(invoice.getPreviousBalance());
         entity.setClosed(invoice.isClosed());
         entity.setPaid(invoice.isPaid());
+        entity.setUseAbsoluteValue(invoice.isUseAbsoluteValue());
+        entity.setRegisterAvailableLimit(invoice.isRegisterAvailableLimit());
+        entity.setRegisteredAvailableLimit(invoice.getRegisteredAvailableLimit());
         // createdAt and updatedAt managed by JPA lifecycle hooks
         return entity;
     }
@@ -133,6 +164,9 @@ public class InvoiceRepositoryAdapter implements InvoiceRepositoryPort {
         invoice.setPreviousBalance(entity.getPreviousBalance());
         invoice.setClosed(entity.isClosed());
         invoice.setPaid(entity.isPaid());
+        invoice.setUseAbsoluteValue(entity.isUseAbsoluteValue());
+        invoice.setRegisterAvailableLimit(entity.isRegisterAvailableLimit());
+        invoice.setRegisteredAvailableLimit(entity.getRegisteredAvailableLimit());
         invoice.setCreatedAt(entity.getCreatedAt());
         invoice.setUpdatedAt(entity.getUpdatedAt());
         return invoice;

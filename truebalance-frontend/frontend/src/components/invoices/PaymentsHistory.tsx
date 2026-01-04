@@ -1,5 +1,8 @@
-import { CheckCircle2 } from 'lucide-react'
+import { useState } from 'react'
+import { CheckCircle2, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { DeleteConfirmation } from '@/components/ui/DeleteConfirmation'
 import { formatCurrency } from '@/utils/currency'
 import { formatDateTime } from '@/utils/date'
 import type { PartialPaymentResponseDTO } from '@/types/dtos/partialPayment.dto'
@@ -7,11 +10,36 @@ import type { PartialPaymentResponseDTO } from '@/types/dtos/partialPayment.dto'
 interface PaymentsHistoryProps {
   payments: PartialPaymentResponseDTO[]
   totalAmount?: number
+  onDelete?: (paymentId: number) => void
+  canDelete?: boolean
+  isLoading?: boolean
 }
 
-export function PaymentsHistory({ payments, totalAmount = 0 }: PaymentsHistoryProps) {
+export function PaymentsHistory({ 
+  payments, 
+  totalAmount = 0, 
+  onDelete,
+  canDelete = false,
+  isLoading = false
+}: PaymentsHistoryProps) {
+  const [paymentToDelete, setPaymentToDelete] = useState<number | null>(null)
   const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0)
   const remainingBalance = totalAmount - totalPaid
+
+  const handleDeleteClick = (paymentId: number) => {
+    setPaymentToDelete(paymentId)
+  }
+
+  const handleConfirmDelete = () => {
+    if (paymentToDelete && onDelete) {
+      onDelete(paymentToDelete)
+      setPaymentToDelete(null)
+    }
+  }
+
+  const handleCancelDelete = () => {
+    setPaymentToDelete(null)
+  }
 
   if (payments.length === 0) {
     return (
@@ -53,10 +81,24 @@ export function PaymentsHistory({ payments, totalAmount = 0 }: PaymentsHistoryPr
                       {formatDateTime(payment.paymentDate)}
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="font-bold text-green-700 dark:text-green-400">
-                      {formatCurrency(payment.amount)}
+                  <div className="text-right flex-shrink-0 flex items-center gap-3">
+                    <div>
+                      <div className="font-bold text-green-700 dark:text-green-400">
+                        {formatCurrency(payment.amount)}
+                      </div>
                     </div>
+                    {canDelete && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteClick(payment.id)}
+                        disabled={isLoading}
+                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                        aria-label="Deletar pagamento"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -98,6 +140,18 @@ export function PaymentsHistory({ payments, totalAmount = 0 }: PaymentsHistoryPr
           )}
         </div>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      {paymentToDelete && (
+        <DeleteConfirmation
+          isOpen={!!paymentToDelete}
+          onClose={handleCancelDelete}
+          onConfirm={handleConfirmDelete}
+          title="Deletar Pagamento Parcial"
+          message="Tem certeza que deseja deletar este pagamento parcial? Esta ação não pode ser desfeita."
+          isLoading={isLoading}
+        />
+      )}
     </div>
   )
 }

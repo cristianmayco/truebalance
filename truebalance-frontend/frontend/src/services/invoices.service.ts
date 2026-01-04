@@ -46,6 +46,16 @@ export const invoicesService = {
   },
 
   /**
+   * Close an invoice
+   */
+  async closeInvoice(invoiceId: number): Promise<InvoiceResponseDTO> {
+    const response = await apiClient.post<InvoiceResponseDTO>(
+      `${INVOICES_ENDPOINT}/${invoiceId}/close`
+    )
+    return response.data
+  },
+
+  /**
    * Mark an invoice as paid
    */
   async markAsPaid(invoiceId: number): Promise<InvoiceResponseDTO> {
@@ -75,6 +85,49 @@ export const invoicesService = {
     const response = await apiClient.post<PartialPaymentResponseDTO>(
       `${INVOICES_ENDPOINT}/${invoiceId}/partial-payments`,
       payment
+    )
+    return response.data
+  },
+
+  /**
+   * Delete a partial payment
+   */
+  async deletePartialPayment(partialPaymentId: number): Promise<void> {
+    await apiClient.delete(`${INVOICES_ENDPOINT}/partial-payments/${partialPaymentId}`)
+  },
+
+  /**
+   * Update useAbsoluteValue flag for an invoice
+   */
+  async updateUseAbsoluteValue(invoiceId: number, useAbsoluteValue: boolean): Promise<InvoiceResponseDTO> {
+    const response = await apiClient.patch<InvoiceResponseDTO>(
+      `${INVOICES_ENDPOINT}/${invoiceId}/use-absolute-value?useAbsoluteValue=${useAbsoluteValue}`
+    )
+    return response.data
+  },
+
+  /**
+   * Update total amount of an invoice (only allowed when useAbsoluteValue = true)
+   */
+  async updateTotalAmount(invoiceId: number, totalAmount: number): Promise<InvoiceResponseDTO> {
+    const response = await apiClient.patch<InvoiceResponseDTO>(
+      `${INVOICES_ENDPOINT}/${invoiceId}/total-amount`,
+      { totalAmount }
+    )
+    return response.data
+  },
+
+  /**
+   * Update registered available limit for an invoice (only allowed for closed invoices)
+   */
+  async updateRegisteredLimit(
+    invoiceId: number,
+    registerAvailableLimit: boolean,
+    registeredAvailableLimit?: number
+  ): Promise<InvoiceResponseDTO> {
+    const response = await apiClient.patch<InvoiceResponseDTO>(
+      `${INVOICES_ENDPOINT}/${invoiceId}/registered-limit`,
+      { registerAvailableLimit, registeredAvailableLimit }
     )
     return response.data
   },

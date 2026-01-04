@@ -31,6 +31,8 @@ public class CreditCardRequestDTO {
     @NotNull(message = "Campo 'permite pagamento parcial' é obrigatório")
     private Boolean allowsPartialPayment;
 
+    private Long id; // Opcional: usado durante importação para mapear IDs antigos para novos
+
     public CreditCardRequestDTO() {
     }
 
@@ -80,6 +82,14 @@ public class CreditCardRequestDTO {
 
     public void setAllowsPartialPayment(Boolean allowsPartialPayment) {
         this.allowsPartialPayment = allowsPartialPayment;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public CreditCard toCreditCard() {

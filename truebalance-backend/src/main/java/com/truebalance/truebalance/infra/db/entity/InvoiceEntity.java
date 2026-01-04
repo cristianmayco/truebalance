@@ -42,6 +42,15 @@ public class InvoiceEntity {
     @Column(nullable = false)
     private boolean paid;
 
+    @Column(name = "use_absolute_value", nullable = false)
+    private boolean useAbsoluteValue = false; // Default false: calcula pela soma das parcelas
+
+    @Column(name = "register_available_limit", nullable = false)
+    private boolean registerAvailableLimit = false; // Se true, esta fatura é o ponto de partida para cálculos de limite
+
+    @Column(name = "registered_available_limit", precision = 10, scale = 2)
+    private BigDecimal registeredAvailableLimit; // Valor do limite disponível registrado
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -52,13 +61,14 @@ public class InvoiceEntity {
     }
 
     public InvoiceEntity(Long creditCardId, LocalDate referenceMonth, BigDecimal totalAmount,
-                         BigDecimal previousBalance, boolean closed, boolean paid) {
+                         BigDecimal previousBalance, boolean closed, boolean paid, boolean useAbsoluteValue) {
         this.creditCardId = creditCardId;
         this.referenceMonth = referenceMonth;
         this.totalAmount = totalAmount;
         this.previousBalance = previousBalance;
         this.closed = closed;
         this.paid = paid;
+        this.useAbsoluteValue = useAbsoluteValue;
     }
 
     @PrePersist
@@ -126,6 +136,30 @@ public class InvoiceEntity {
 
     public void setPaid(boolean paid) {
         this.paid = paid;
+    }
+
+    public boolean isUseAbsoluteValue() {
+        return useAbsoluteValue;
+    }
+
+    public void setUseAbsoluteValue(boolean useAbsoluteValue) {
+        this.useAbsoluteValue = useAbsoluteValue;
+    }
+
+    public boolean isRegisterAvailableLimit() {
+        return registerAvailableLimit;
+    }
+
+    public void setRegisterAvailableLimit(boolean registerAvailableLimit) {
+        this.registerAvailableLimit = registerAvailableLimit;
+    }
+
+    public BigDecimal getRegisteredAvailableLimit() {
+        return registeredAvailableLimit;
+    }
+
+    public void setRegisteredAvailableLimit(BigDecimal registeredAvailableLimit) {
+        this.registeredAvailableLimit = registeredAvailableLimit;
     }
 
     public LocalDateTime getCreatedAt() {

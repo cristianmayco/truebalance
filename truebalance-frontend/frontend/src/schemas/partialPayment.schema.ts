@@ -15,13 +15,7 @@ export const partialPaymentSchema = z.object({
     .string()
     .max(200, 'A descrição deve ter no máximo 200 caracteres')
     .optional(),
-
-  paymentDate: z
-    .date({
-      message: 'A data de pagamento é obrigatória',
-    })
-    .optional()
-    .default(() => new Date()),
+  // Note: paymentDate is set by the backend, not sent from frontend
 });
 
 /**
@@ -33,17 +27,11 @@ export type PartialPaymentFormData = z.infer<typeof partialPaymentSchema>;
  * Schema para validação de pagamento integral
  */
 export const fullPaymentSchema = z.object({
-  paymentDate: z
-    .date({
-      message: 'A data de pagamento é obrigatória',
-    })
-    .optional()
-    .default(() => new Date()),
-
   description: z
     .string()
     .max(200, 'A descrição deve ter no máximo 200 caracteres')
     .optional(),
+  // Note: paymentDate is not needed - marking as paid doesn't require a date
 });
 
 /**

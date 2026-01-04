@@ -10,4 +10,5 @@ export interface PartialPaymentResponseDTO {
   description: string | null
   paymentDate: string
   createdAt: string
+  creditCardAvailableLimit?: number // BR-PP-006: Limite disponível atualizado após pagamento
 }

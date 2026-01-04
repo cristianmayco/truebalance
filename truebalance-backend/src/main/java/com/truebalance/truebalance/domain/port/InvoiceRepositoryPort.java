@@ -19,4 +19,10 @@ public interface InvoiceRepositoryPort {
     List<Invoice> findByCreditCardId(Long creditCardId);
 
     List<Invoice> findByCreditCardIdAndClosed(Long creditCardId, boolean closed);
+
+    List<Invoice> findByCreditCardIdAndClosedAndPaid(Long creditCardId, boolean closed, boolean paid);
+
+    List<Invoice> findByCreditCardIdAndRegisterAvailableLimitOrderByReferenceMonthDesc(Long creditCardId, boolean registerAvailableLimit);
+
+    List<Invoice> findAll();
 }

@@ -32,6 +32,7 @@ public class GenerateOrGetInvoiceForMonth {
         newInvoice.setPreviousBalance(BigDecimal.ZERO);
         newInvoice.setClosed(false);
         newInvoice.setPaid(false);
+        newInvoice.setUseAbsoluteValue(false); // Default: calculate from installments
 
         return invoiceRepository.save(newInvoice);
     }
