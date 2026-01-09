@@ -77,17 +77,37 @@ public class CreateBillWithCreditCard {
      */
     @Transactional(rollbackFor = Exception.class)
     public Bill execute(Bill bill, Long creditCardId) {
+        return execute(bill, creditCardId, true);
+    }
+
+    /**
+     * Execute the creation of a bill with credit card integration.
+     *
+     * @param bill         the bill to create
+     * @param creditCardId the credit card ID to link to
+     * @param validateLimit if true, validates available limit; if false, skips validation (for imports)
+     * @return the created bill
+     * @throws CreditCardNotFoundException   if credit card not found
+     * @throws CreditLimitExceededException if available limit is insufficient (only if validateLimit is true)
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Bill execute(Bill bill, Long creditCardId, boolean validateLimit) {
         // 1. Validate credit card exists
         CreditCard creditCard = creditCardRepository.findById(creditCardId)
                 .orElseThrow(() -> new CreditCardNotFoundException(creditCardId));
 
         // 2. Validate available limit ONCE at the beginning (BR-CC-008)
-        AvailableLimitResult limitResult = getAvailableLimit.execute(creditCardId);
-        if (bill.getTotalAmount().compareTo(limitResult.getAvailableLimit()) > 0) {
-            throw new CreditLimitExceededException(
-                    String.format("Limite insuficiente. Necessário: %.2f, Disponível: %.2f",
-                            bill.getTotalAmount(), limitResult.getAvailableLimit())
-            );
+        // Skip validation during import to allow restoring existing data
+        if (validateLimit) {
+            AvailableLimitResult limitResult = getAvailableLimit.execute(creditCardId);
+            if (bill.getTotalAmount().compareTo(limitResult.getAvailableLimit()) > 0) {
+                throw new CreditLimitExceededException(
+                        String.format("Limite insuficiente. Necessário: %.2f, Disponível: %.2f",
+                                bill.getTotalAmount(), limitResult.getAvailableLimit())
+                );
+            }
+        } else {
+            logger.debug("Pulando validação de limite para conta '{}' (importação)", bill.getName());
         }
 
         // 3. Create Bill using existing CreateBill use case (COMPOSITION)

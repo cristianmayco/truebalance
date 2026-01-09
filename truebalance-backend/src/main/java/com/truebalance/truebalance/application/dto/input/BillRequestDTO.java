@@ -1,6 +1,7 @@
 package com.truebalance.truebalance.application.dto.input;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.truebalance.truebalance.domain.entity.Bill;
 import jakarta.validation.constraints.Min;
@@ -11,6 +12,7 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class BillRequestDTO {
 
     @NotBlank(message = "Nome da conta é obrigatório")

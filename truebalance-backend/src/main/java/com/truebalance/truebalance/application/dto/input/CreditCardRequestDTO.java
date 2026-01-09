@@ -1,5 +1,6 @@
 package com.truebalance.truebalance.application.dto.input;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.truebalance.truebalance.domain.entity.CreditCard;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -9,6 +10,7 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CreditCardRequestDTO {
 
     @NotBlank(message = "Nome do cartão é obrigatório")

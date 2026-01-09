@@ -100,7 +100,7 @@ export function ImportExport() {
                   Exportar Dados
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Exporte todos os seus dados (contas, cartões de crédito e faturas) em formato
+                  Exporte todos os seus dados (contas, cartões de crédito, faturas e categorias) em formato
                   JSON.
                 </p>
                 <Button
@@ -127,7 +127,7 @@ export function ImportExport() {
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                     Importe dados de um arquivo JSON. Duplicatas serão ignoradas automaticamente.
                     <br />
-                    <strong className="text-yellow-600 dark:text-yellow-400">Importante:</strong> Certifique-se de que os cartões de crédito sejam importados antes das faturas, pois as faturas dependem dos cartões.
+                    <strong className="text-yellow-600 dark:text-yellow-400">Importante:</strong> A ordem de importação é automática: categorias primeiro, depois cartões de crédito, depois contas e por último faturas.
                   </p>
 
                   <div className="space-y-3">

@@ -1,8 +1,54 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, QueryClient } from '@tanstack/react-query'
 import { invoicesService } from '@/services/invoices.service'
 import type { PartialPaymentRequestDTO } from '@/types/dtos/partialPayment.dto'
+import type { InvoiceResponseDTO } from '@/types/dtos/invoice.dto'
 
 const INVOICES_QUERY_KEY = 'invoices'
+
+/**
+ * Função auxiliar para buscar creditCardId de uma fatura no cache
+ * Procura em todas as queries possíveis onde a fatura pode estar armazenada
+ */
+function findCreditCardIdFromCache(
+  queryClient: QueryClient,
+  invoiceId: number
+): number | undefined {
+  // 1. Tentar buscar da query específica da fatura
+  const invoice = queryClient.getQueryData<InvoiceResponseDTO>([
+    INVOICES_QUERY_KEY,
+    invoiceId,
+  ])
+  if (invoice?.creditCardId) {
+    return invoice.creditCardId
+  }
+
+  // 2. Buscar em todas as queries de listas por cartão
+  const queryCache = queryClient.getQueryCache()
+  const invoiceQueries = queryCache.findAll({
+    queryKey: [INVOICES_QUERY_KEY],
+  })
+
+  for (const query of invoiceQueries) {
+    const data = query.state.data
+    if (Array.isArray(data)) {
+      // É uma lista de faturas
+      const foundInvoice = data.find(
+        (inv: InvoiceResponseDTO) => inv.id === invoiceId
+      )
+      if (foundInvoice?.creditCardId) {
+        return foundInvoice.creditCardId
+      }
+    } else if (data && typeof data === 'object' && 'id' in data) {
+      // É uma fatura individual
+      const inv = data as InvoiceResponseDTO
+      if (inv.id === invoiceId && inv.creditCardId) {
+        return inv.creditCardId
+      }
+    }
+  }
+
+  return undefined
+}
 
 /**
  * Hook para buscar faturas de um cartão de crédito
@@ -105,11 +151,19 @@ export function useAddPartialPayment() {
   return useMutation({
     mutationFn: ({ invoiceId, payment }: { invoiceId: number; payment: PartialPaymentRequestDTO }) =>
       invoicesService.addPartialPayment(invoiceId, payment),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: [INVOICES_QUERY_KEY] })
       queryClient.invalidateQueries({ queryKey: [INVOICES_QUERY_KEY, data.invoiceId] })
       queryClient.invalidateQueries({ queryKey: [INVOICES_QUERY_KEY, data.invoiceId, 'partialPayments'] })
+      
+      // Buscar creditCardId usando a função auxiliar que procura em todas as queries possíveis
+      const creditCardId = findCreditCardIdFromCache(queryClient, variables.invoiceId)
+      
       // Invalidate credit card limit queries to update available limit
+      if (creditCardId) {
+        queryClient.invalidateQueries({ queryKey: ['creditCards', creditCardId, 'limit'] })
+      }
+      // Also invalidate all credit cards queries as fallback
       queryClient.invalidateQueries({ queryKey: ['creditCards'] })
     },
   })
@@ -123,10 +177,46 @@ export function useDeletePartialPayment() {
 
   return useMutation({
     mutationFn: (partialPaymentId: number) => invoicesService.deletePartialPayment(partialPaymentId),
-    onSuccess: () => {
+    onSuccess: (_, partialPaymentId) => {
       // Invalidate all invoice queries to refresh data
       queryClient.invalidateQueries({ queryKey: [INVOICES_QUERY_KEY] })
+      
+      // Try to find the invoice from cache by searching partial payments
+      // This is a best-effort approach to invalidate the specific credit card limit
+      const queryCache = queryClient.getQueryCache()
+      let invoiceId: number | undefined
+      
+      // Search through all invoice queries to find the one containing this partial payment
+      queryCache.findAll({ queryKey: [INVOICES_QUERY_KEY] }).forEach((query) => {
+        const data = query.state.data
+        if (Array.isArray(data)) {
+          // É uma lista de faturas
+          const foundInvoice = data.find((inv: InvoiceResponseDTO) =>
+            inv.partialPayments?.some(p => p.id === partialPaymentId)
+          )
+          if (foundInvoice) {
+            invoiceId = foundInvoice.id
+          }
+        } else if (data && typeof data === 'object' && 'id' in data) {
+          // É uma fatura individual
+          const inv = data as InvoiceResponseDTO
+          if (inv.partialPayments?.some(p => p.id === partialPaymentId)) {
+            invoiceId = inv.id
+          }
+        }
+      })
+      
+      // Se encontrou o invoiceId, usar a função auxiliar para buscar o creditCardId
+      let creditCardId: number | undefined
+      if (invoiceId) {
+        creditCardId = findCreditCardIdFromCache(queryClient, invoiceId)
+      }
+      
       // Invalidate credit card limit queries to update available limit
+      if (creditCardId) {
+        queryClient.invalidateQueries({ queryKey: ['creditCards', creditCardId, 'limit'] })
+      }
+      // Also invalidate all credit cards queries as fallback
       queryClient.invalidateQueries({ queryKey: ['creditCards'] })
     },
   })

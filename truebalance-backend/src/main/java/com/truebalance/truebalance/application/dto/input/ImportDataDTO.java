@@ -12,6 +12,9 @@ public class ImportDataDTO {
     
     @Valid
     private List<InvoiceImportItemDTO> invoices;
+    
+    @Valid
+    private List<CategoryRequestDTO> categories;
 
     public ImportDataDTO() {
     }
@@ -38,5 +41,13 @@ public class ImportDataDTO {
 
     public void setInvoices(List<InvoiceImportItemDTO> invoices) {
         this.invoices = invoices;
+    }
+
+    public List<CategoryRequestDTO> getCategories() {
+        return categories;
+    }
+
+    public void setCategories(List<CategoryRequestDTO> categories) {
+        this.categories = categories;
     }
 }

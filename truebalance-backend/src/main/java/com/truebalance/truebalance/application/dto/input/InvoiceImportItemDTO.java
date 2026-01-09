@@ -1,10 +1,12 @@
 package com.truebalance.truebalance.application.dto.input;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class InvoiceImportItemDTO {
     @NotNull(message = "ID do cartão de crédito é obrigatório")
     private Long creditCardId;
@@ -13,7 +15,7 @@ public class InvoiceImportItemDTO {
     private LocalDate referenceMonth;
 
     @NotNull(message = "Valor total é obrigatório")
-    @Positive(message = "Valor total deve ser positivo")
+    @PositiveOrZero(message = "Valor total deve ser positivo ou zero")
     private BigDecimal totalAmount;
 
     private BigDecimal previousBalance;

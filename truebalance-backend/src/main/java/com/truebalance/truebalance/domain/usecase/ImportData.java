@@ -1,14 +1,17 @@
 package com.truebalance.truebalance.domain.usecase;
 
 import com.truebalance.truebalance.application.dto.input.BillRequestDTO;
+import com.truebalance.truebalance.application.dto.input.CategoryRequestDTO;
 import com.truebalance.truebalance.application.dto.input.CreditCardRequestDTO;
 import com.truebalance.truebalance.application.dto.input.ImportDataDTO;
 import com.truebalance.truebalance.application.dto.input.InvoiceImportItemDTO;
 import com.truebalance.truebalance.application.dto.output.ImportResultDTO;
 import com.truebalance.truebalance.domain.entity.Bill;
+import com.truebalance.truebalance.domain.entity.Category;
 import com.truebalance.truebalance.domain.entity.CreditCard;
 import com.truebalance.truebalance.domain.entity.Invoice;
 import com.truebalance.truebalance.domain.port.BillRepositoryPort;
+import com.truebalance.truebalance.domain.port.CategoryRepositoryPort;
 import com.truebalance.truebalance.domain.service.CreditCardNameNormalizer;
 import com.truebalance.truebalance.domain.port.CreditCardRepositoryPort;
 import com.truebalance.truebalance.domain.port.InvoiceRepositoryPort;
@@ -28,23 +31,29 @@ public class ImportData {
     private final BillRepositoryPort billRepository;
     private final CreditCardRepositoryPort creditCardRepository;
     private final InvoiceRepositoryPort invoiceRepository;
+    private final CategoryRepositoryPort categoryRepository;
     private final CreateBill createBill;
     private final CreateCreditCard createCreditCard;
+    private final CreateCategory createCategory;
     private final CreateBillWithCreditCard createBillWithCreditCard;
     private final ProcessPostImport processPostImport;
 
     public ImportData(BillRepositoryPort billRepository,
                       CreditCardRepositoryPort creditCardRepository,
                       InvoiceRepositoryPort invoiceRepository,
+                      CategoryRepositoryPort categoryRepository,
                       CreateBill createBill,
                       CreateCreditCard createCreditCard,
+                      CreateCategory createCategory,
                       CreateBillWithCreditCard createBillWithCreditCard,
                       ProcessPostImport processPostImport) {
         this.billRepository = billRepository;
         this.creditCardRepository = creditCardRepository;
         this.invoiceRepository = invoiceRepository;
+        this.categoryRepository = categoryRepository;
         this.createBill = createBill;
         this.createCreditCard = createCreditCard;
+        this.createCategory = createCategory;
         this.createBillWithCreditCard = createBillWithCreditCard;
         this.processPostImport = processPostImport;
     }
@@ -58,6 +67,37 @@ public class ImportData {
         
         // Mapeamento de IDs antigos (do JSON) para novos IDs (gerados pelo banco)
         Map<Long, Long> creditCardIdMapping = new HashMap<>();
+        Map<Long, Long> categoryIdMapping = new HashMap<>();
+
+        // Importar categorias primeiro (pois contas podem referenciar categorias)
+        if (importData.getCategories() != null && !importData.getCategories().isEmpty()) {
+            logger.info("Importando {} categorias", importData.getCategories().size());
+            for (CategoryRequestDTO dto : importData.getCategories()) {
+                totalProcessed++;
+                try {
+                    // Verificar se já existe categoria com mesmo nome (case-insensitive)
+                    Optional<Category> existing = categoryRepository.findByNameIgnoreCase(dto.getName());
+
+                    if (existing.isPresent()) {
+                        logger.debug("Categoria '{}' já existe, ignorando", dto.getName());
+                        totalSkipped++;
+                    } else {
+                        Category category = new Category();
+                        category.setName(dto.getName());
+                        category.setDescription(dto.getDescription());
+                        category.setColor(dto.getColor());
+                        Category savedCategory = createCategory.execute(category);
+                        totalCreated++;
+                        logger.debug("Categoria '{}' criada com sucesso", dto.getName());
+                    }
+                } catch (Exception e) {
+                    totalSkipped++;
+                    String error = String.format("Erro ao importar categoria '%s': %s", dto.getName(), e.getMessage());
+                    errors.add(error);
+                    logger.error(error, e);
+                }
+            }
+        }
 
         // Validar dependências antes de importar
         if (importData.getInvoices() != null && !importData.getInvoices().isEmpty() &&
@@ -166,9 +206,10 @@ public class ImportData {
                         }
                         
                         // Usar CreateBillWithCreditCard para criar vínculo e parcelas
-                        logger.debug("Criando conta '{}' vinculada ao cartão de crédito ID={}", 
+                        // Desabilitar validação de limite durante importação para permitir restaurar dados existentes
+                        logger.debug("Criando conta '{}' vinculada ao cartão de crédito ID={} (importação)", 
                                 dto.getName(), creditCardId);
-                        createBillWithCreditCard.execute(bill, creditCardId);
+                        createBillWithCreditCard.execute(bill, creditCardId, false);
                     } else {
                         // Conta sem cartão de crédito
                         createBill.addBill(bill);

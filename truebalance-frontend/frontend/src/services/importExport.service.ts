@@ -4,12 +4,14 @@ export interface ExportDataDTO {
   bills: any[]
   creditCards: any[]
   invoices: any[]
+  categories: any[]
 }
 
 export interface ImportDataDTO {
   bills?: any[]
   creditCards?: any[]
   invoices?: any[]
+  categories?: any[]
 }
 
 export interface ImportResultDTO {

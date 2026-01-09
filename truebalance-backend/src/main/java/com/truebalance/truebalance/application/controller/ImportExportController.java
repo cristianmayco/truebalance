@@ -46,10 +46,11 @@ public class ImportExportController {
     public ResponseEntity<ExportDataDTO> exportData() {
         logger.info("GET /import-export/export - Exportando todos os dados");
         ExportDataDTO exportDataDTO = exportData.execute();
-        logger.info("Exportação concluída: {} contas, {} cartões, {} faturas",
+        logger.info("Exportação concluída: {} contas, {} cartões, {} faturas, {} categorias",
                 exportDataDTO.getBills() != null ? exportDataDTO.getBills().size() : 0,
                 exportDataDTO.getCreditCards() != null ? exportDataDTO.getCreditCards().size() : 0,
-                exportDataDTO.getInvoices() != null ? exportDataDTO.getInvoices().size() : 0);
+                exportDataDTO.getInvoices() != null ? exportDataDTO.getInvoices().size() : 0,
+                exportDataDTO.getCategories() != null ? exportDataDTO.getCategories().size() : 0);
         return ResponseEntity.ok(exportDataDTO);
     }
 

@@ -1,14 +1,17 @@
 package com.truebalance.truebalance.domain.usecase;
 
 import com.truebalance.truebalance.application.dto.output.BillResponseDTO;
+import com.truebalance.truebalance.application.dto.output.CategoryResponseDTO;
 import com.truebalance.truebalance.application.dto.output.CreditCardResponseDTO;
 import com.truebalance.truebalance.application.dto.output.ExportDataDTO;
 import com.truebalance.truebalance.application.dto.output.InvoiceResponseDTO;
 import com.truebalance.truebalance.domain.entity.Bill;
+import com.truebalance.truebalance.domain.entity.Category;
 import com.truebalance.truebalance.domain.entity.CreditCard;
 import com.truebalance.truebalance.domain.entity.Invoice;
 import com.truebalance.truebalance.domain.entity.Installment;
 import com.truebalance.truebalance.domain.port.BillRepositoryPort;
+import com.truebalance.truebalance.domain.port.CategoryRepositoryPort;
 import com.truebalance.truebalance.domain.port.CreditCardRepositoryPort;
 import com.truebalance.truebalance.domain.port.InvoiceRepositoryPort;
 import com.truebalance.truebalance.domain.port.InstallmentRepositoryPort;
@@ -25,15 +28,18 @@ public class ExportData {
     private final CreditCardRepositoryPort creditCardRepository;
     private final InvoiceRepositoryPort invoiceRepository;
     private final InstallmentRepositoryPort installmentRepository;
+    private final CategoryRepositoryPort categoryRepository;
 
     public ExportData(BillRepositoryPort billRepository,
                       CreditCardRepositoryPort creditCardRepository,
                       InvoiceRepositoryPort invoiceRepository,
-                      InstallmentRepositoryPort installmentRepository) {
+                      InstallmentRepositoryPort installmentRepository,
+                      CategoryRepositoryPort categoryRepository) {
         this.billRepository = billRepository;
         this.creditCardRepository = creditCardRepository;
         this.invoiceRepository = invoiceRepository;
         this.installmentRepository = installmentRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     public ExportDataDTO execute() {
@@ -107,9 +113,38 @@ public class ExportData {
                 .collect(Collectors.toList());
         logger.info("Exportadas {} faturas", invoicesDTO.size());
 
-        ExportDataDTO exportData = new ExportDataDTO(billsDTO, creditCardsDTO, invoicesDTO);
-        logger.info("Exportação concluída: {} contas, {} cartões, {} faturas",
-                billsDTO.size(), creditCardsDTO.size(), invoicesDTO.size());
+        // Buscar categorias referenciadas pelas bills através do nome da categoria
+        Set<String> referencedCategoryNames = new HashSet<>();
+        for (Bill bill : bills) {
+            if (bill.getCategory() != null && !bill.getCategory().trim().isEmpty()) {
+                referencedCategoryNames.add(bill.getCategory());
+            }
+        }
+        
+        // Exportar categorias referenciadas ou todas se não houver referências
+        List<Category> allCategories = categoryRepository.findAll();
+        List<CategoryResponseDTO> categoriesDTO;
+        
+        if (referencedCategoryNames.isEmpty()) {
+            // Exportar todas as categorias se não houver referências
+            categoriesDTO = allCategories.stream()
+                    .map(CategoryResponseDTO::fromCategory)
+                    .collect(Collectors.toList());
+            logger.info("Nenhuma categoria referenciada encontrada, exportando todas as {} categorias", allCategories.size());
+        } else {
+            // Exportar apenas categorias referenciadas
+            categoriesDTO = allCategories.stream()
+                    .filter(cat -> referencedCategoryNames.contains(cat.getName()))
+                    .map(CategoryResponseDTO::fromCategory)
+                    .collect(Collectors.toList());
+            logger.info("Exportando {} categorias referenciadas (de {} total)", 
+                    categoriesDTO.size(), allCategories.size());
+        }
+        logger.info("Exportadas {} categorias", categoriesDTO.size());
+
+        ExportDataDTO exportData = new ExportDataDTO(billsDTO, creditCardsDTO, invoicesDTO, categoriesDTO);
+        logger.info("Exportação concluída: {} contas, {} cartões, {} faturas, {} categorias",
+                billsDTO.size(), creditCardsDTO.size(), invoicesDTO.size(), categoriesDTO.size());
 
         return exportData;
     }

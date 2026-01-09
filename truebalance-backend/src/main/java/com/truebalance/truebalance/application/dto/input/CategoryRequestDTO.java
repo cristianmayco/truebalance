@@ -1,8 +1,10 @@
 package com.truebalance.truebalance.application.dto.input;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CategoryRequestDTO {
 
     @NotBlank(message = "Nome da categoria é obrigatório")

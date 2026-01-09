@@ -6,14 +6,16 @@ public class ExportDataDTO {
     private List<BillResponseDTO> bills;
     private List<CreditCardResponseDTO> creditCards;
     private List<InvoiceResponseDTO> invoices;
+    private List<CategoryResponseDTO> categories;
 
     public ExportDataDTO() {
     }
 
-    public ExportDataDTO(List<BillResponseDTO> bills, List<CreditCardResponseDTO> creditCards, List<InvoiceResponseDTO> invoices) {
+    public ExportDataDTO(List<BillResponseDTO> bills, List<CreditCardResponseDTO> creditCards, List<InvoiceResponseDTO> invoices, List<CategoryResponseDTO> categories) {
         this.bills = bills;
         this.creditCards = creditCards;
         this.invoices = invoices;
+        this.categories = categories;
     }
 
     public List<BillResponseDTO> getBills() {
@@ -38,5 +40,13 @@ public class ExportDataDTO {
 
     public void setInvoices(List<InvoiceResponseDTO> invoices) {
         this.invoices = invoices;
+    }
+
+    public List<CategoryResponseDTO> getCategories() {
+        return categories;
+    }
+
+    public void setCategories(List<CategoryResponseDTO> categories) {
+        this.categories = categories;
     }
 }
